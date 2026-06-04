@@ -1,0 +1,263 @@
+import { useState, useEffect } from 'react';
+import { api } from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
+
+// ── Sekcja: zmiana hasła ──────────────────────────────────────────────────────
+function ZmianaHasla() {
+  const [form, setForm] = useState({ stare_haslo: '', nowe_haslo: '', nowe_haslo2: '' });
+  const [status, setStatus] = useState(''); // '' | 'ok' | 'error'
+  const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (form.nowe_haslo !== form.nowe_haslo2) { setStatus('error'); setMsg('Hasła nie są identyczne'); return; }
+    if (form.nowe_haslo.length < 8) { setStatus('error'); setMsg('Hasło min. 8 znaków'); return; }
+    setLoading(true); setStatus(''); setMsg('');
+    try {
+      await api.zmienHaslo({ stare_haslo: form.stare_haslo, nowe_haslo: form.nowe_haslo });
+      setStatus('ok'); setMsg('Hasło zostało zmienione');
+      setForm({ stare_haslo: '', nowe_haslo: '', nowe_haslo2: '' });
+    } catch (e) { setStatus('error'); setMsg(e.message); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
+      <h2 className="font-display font-700 text-ink text-lg mb-4">Zmiana hasła</h2>
+      <form onSubmit={submit} className="space-y-4 w-full max-w-sm">
+        {[
+          { key: 'stare_haslo', label: 'Obecne hasło' },
+          { key: 'nowe_haslo', label: 'Nowe hasło' },
+          { key: 'nowe_haslo2', label: 'Powtórz nowe hasło' },
+        ].map(({ key, label }) => (
+          <div key={key}>
+            <label className="block font-body text-sm font-500 text-ink mb-1">{label}</label>
+            <input type="password" value={form[key]}
+              onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
+              placeholder="••••••••" required />
+          </div>
+        ))}
+        {msg && (
+          <div className={`rounded-xl px-4 py-3 font-body text-sm ${status === 'ok' ? 'bg-sage-100 text-sage-700' : 'bg-rose-50 text-rose-500'}`}>
+            {msg}
+          </div>
+        )}
+        <button type="submit" disabled={loading}
+          className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700 disabled:opacity-50">
+          {loading ? 'Zapisywanie...' : 'Zmień hasło'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ── Sekcja: MFA ───────────────────────────────────────────────────────────────
+function MfaSekcja() {
+  const [mfaStatus, setMfaStatus] = useState(null);
+  const [krok, setKrok] = useState('idle'); // idle | setup | aktywny | wylacz
+  const [qr, setQr] = useState('');
+  const [secret, setSecret] = useState('');
+  const [kod, setKod] = useState('');
+  const [backupCodes, setBackupCodes] = useState([]);
+  const [hasloWylacz, setHasloWylacz] = useState('');
+  const [msg, setMsg] = useState({ text: '', type: '' });
+  const [loading, setLoading] = useState(false);
+
+  const loadStatus = async () => {
+    const s = await api.mfaStatus();
+    setMfaStatus(s);
+  };
+
+  useEffect(() => { loadStatus(); }, []);
+
+  const startSetup = async () => {
+    setLoading(true); setMsg({ text: '', type: '' });
+    try {
+      const data = await api.mfaSetup();
+      setQr(data.qr); setSecret(data.secret);
+      setKrok('setup');
+    } catch (e) { setMsg({ text: e.message, type: 'error' }); }
+    finally { setLoading(false); }
+  };
+
+  const aktywuj = async (e) => {
+    e.preventDefault();
+    setLoading(true); setMsg({ text: '', type: '' });
+    try {
+      const data = await api.mfaAktywuj(kod);
+      setBackupCodes(data.backup_codes);
+      setKrok('backup');
+      await loadStatus();
+    } catch (e) { setMsg({ text: e.message, type: 'error' }); }
+    finally { setLoading(false); }
+  };
+
+  const wylacz = async (e) => {
+    e.preventDefault();
+    setLoading(true); setMsg({ text: '', type: '' });
+    try {
+      await api.mfaWylacz(hasloWylacz);
+      setKrok('idle'); setHasloWylacz('');
+      setMsg({ text: 'MFA zostało wyłączone', type: 'ok' });
+      await loadStatus();
+    } catch (e) { setMsg({ text: e.message, type: 'error' }); }
+    finally { setLoading(false); }
+  };
+
+  if (!mfaStatus) return <div className="font-body text-sage-400 text-sm py-4">Ładowanie...</div>;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-display font-700 text-ink text-lg">Uwierzytelnianie dwuskładnikowe (MFA)</h2>
+        <span className={`text-xs font-mono px-2.5 py-1 rounded-full ${mfaStatus.mfa_enabled ? 'bg-sage-100 text-sage-700' : 'bg-gray-100 text-gray-500'}`}>
+          {mfaStatus.mfa_enabled ? 'Włączone' : 'Wyłączone'}
+        </span>
+      </div>
+
+      {mfaStatus.mfa_wymuszone && !mfaStatus.mfa_enabled && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 font-body text-sm text-amber-700">
+          ⚠ Księgowy wymaga włączenia MFA dla Twojego konta.
+        </div>
+      )}
+
+      {msg.text && (
+        <div className={`rounded-xl px-4 py-3 mb-4 font-body text-sm ${msg.type === 'ok' ? 'bg-sage-100 text-sage-700' : 'bg-rose-50 text-rose-500'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* Nie skonfigurowane */}
+      {!mfaStatus.mfa_enabled && krok === 'idle' && (
+        <div className="space-y-3">
+          <p className="font-body text-sm text-sage-600 dark:text-sage-400 dark:text-gray-500">
+            Zwiększ bezpieczeństwo konta. Przy logowaniu będziesz proszona/y o kod z aplikacji
+            takiej jak Google Authenticator lub Authy.
+          </p>
+          <button onClick={startSetup} disabled={loading}
+            className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700 disabled:opacity-50">
+            {loading ? '...' : 'Włącz MFA'}
+          </button>
+        </div>
+      )}
+
+      {/* Setup — QR kod */}
+      {krok === 'setup' && (
+        <div className="space-y-4">
+          <p className="font-body text-sm text-sage-600 dark:text-sage-400 dark:text-gray-500">
+            Zeskanuj kod QR w aplikacji uwierzytelniającej (Google Authenticator, Authy, itp.),
+            a następnie wpisz 6-cyfrowy kod który pojawi się w aplikacji.
+          </p>
+          <div className="flex justify-center">
+            <img src={qr} alt="QR kod MFA" className="w-48 h-48 rounded-xl border border-sage-100 dark:border-gray-700" />
+          </div>
+          <div className="bg-sage-50 dark:bg-gray-700/50 rounded-xl px-4 py-3">
+            <div className="font-body text-xs text-sage-500 mb-1">Klucz ręczny (jeśli nie możesz zeskanować):</div>
+            <div className="font-mono text-sm text-ink break-all">{secret}</div>
+          </div>
+          <form onSubmit={aktywuj} className="space-y-3">
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Kod weryfikacyjny</label>
+              <input type="text" inputMode="numeric" maxLength={6} value={kod}
+                onChange={e => setKod(e.target.value.replace(/\D/g, ''))}
+                className="w-full border border-sage-200 rounded-xl px-4 py-2.5 font-mono text-ink text-center text-xl tracking-widest focus:outline-none focus:border-sage-600"
+                placeholder="000000" required autoFocus />
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setKrok('idle')}
+                className="flex-1 border border-sage-200 rounded-xl py-2.5 font-body text-ink hover:bg-sage-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700">
+                Anuluj
+              </button>
+              <button type="submit" disabled={loading}
+                className="flex-1 bg-ink text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700 disabled:opacity-50">
+                {loading ? '...' : 'Aktywuj MFA'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Backup codes */}
+      {krok === 'backup' && (
+        <div className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <div className="font-body text-sm font-500 text-amber-700 mb-1">⚠ Zapisz kody zapasowe!</div>
+            <div className="font-body text-xs text-amber-600">
+              Jeśli stracisz dostęp do aplikacji uwierzytelniającej, użyj jednego z tych kodów.
+              Każdy kod działa tylko raz. Przechowuj je w bezpiecznym miejscu.
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {backupCodes.map((code, i) => (
+              <div key={i} className="bg-sage-50 dark:bg-gray-700/50 rounded-lg px-3 py-2 font-mono text-sm text-ink text-center">
+                {code}
+              </div>
+            ))}
+          </div>
+          <button onClick={() => { setKrok('idle'); setMsg({ text: 'MFA zostało włączone ✓', type: 'ok' }); }}
+            className="w-full bg-sage-600 text-white font-display font-600 py-2.5 rounded-xl hover:bg-sage-700">
+            Zapisałem/am kody — zamknij
+          </button>
+        </div>
+      )}
+
+      {/* MFA włączone */}
+      {mfaStatus.mfa_enabled && krok === 'idle' && (
+        <div className="space-y-3">
+          <p className="font-body text-sm text-sage-600 dark:text-sage-400 dark:text-gray-500">
+            MFA jest aktywne. Pozostało {mfaStatus.backup_codes_count ?? 0} kodów zapasowych.
+          </p>
+          {!mfaStatus.mfa_wymuszone && (
+            <button onClick={() => setKrok('wylacz')}
+              className="text-sm font-body text-rose-400 hover:text-rose-500 underline">
+              Wyłącz MFA
+            </button>
+          )}
+          {mfaStatus.mfa_wymuszone && (
+            <p className="font-body text-xs text-sage-400 dark:text-gray-500">MFA jest wymuszone przez księgowego — nie możesz go wyłączyć.</p>
+          )}
+        </div>
+      )}
+
+      {/* Wyłącz MFA */}
+      {krok === 'wylacz' && (
+        <form onSubmit={wylacz} className="space-y-4 w-full max-w-sm">
+          <p className="font-body text-sm text-sage-600 dark:text-sage-400 dark:text-gray-500">Podaj hasło aby potwierdzić wyłączenie MFA.</p>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Hasło</label>
+            <input type="password" value={hasloWylacz} onChange={e => setHasloWylacz(e.target.value)}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
+              placeholder="••••••••" required />
+          </div>
+          <div className="flex gap-3">
+            <button type="button" onClick={() => setKrok('idle')}
+              className="flex-1 border border-sage-200 rounded-xl py-2.5 font-body text-ink hover:bg-sage-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700">
+              Anuluj
+            </button>
+            <button type="submit" disabled={loading}
+              className="flex-1 bg-rose-500 text-white rounded-xl py-2.5 font-display font-600 hover:bg-rose-600 disabled:opacity-50">
+              {loading ? '...' : 'Wyłącz MFA'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+// ── Główna strona ustawień ────────────────────────────────────────────────────
+export default function Ustawienia() {
+  const { user } = useAuth();
+  return (
+    <div className="max-w-2xl space-y-6">
+      <div className="mb-2">
+        <h1 className="font-display text-3xl font-700 text-ink dark:text-gray-100">Ustawienia</h1>
+        <p className="font-body text-sage-600 mt-1">Konto: <span className="font-500">{user?.login}</span></p>
+      </div>
+      <ZmianaHasla />
+      <MfaSekcja />
+    </div>
+  );
+}

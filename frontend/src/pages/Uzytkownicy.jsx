@@ -1,0 +1,437 @@
+import { useEffect, useState, useRef } from 'react';
+import { api } from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
+
+// ── Modal: dodaj użytkownika ──────────────────────────────────────────────────
+function DodajModal({ ucznowie, onClose, onSave }) {
+  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', imie: '', nazwisko: '' });
+  const [wyslijMail, setWyslijMail] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault(); setSaving(true); setErr('');
+    if (wyslijMail && !form.email) { setErr('Podaj email aby wysłać zaproszenie'); setSaving(false); return; }
+    if (!wyslijMail && form.haslo.length < 8) { setErr('Hasło min. 8 znaków'); setSaving(false); return; }
+    try { await onSave(form, wyslijMail); onClose(); }
+    catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b border-sage-100 dark:border-gray-700 dark:border-gray-700">
+          <h3 className="font-display font-700 text-ink dark:text-gray-100">Nowy użytkownik</h3>
+        </div>
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Imię</label>
+              <input value={form.imie} onChange={e => setForm(f => ({ ...f, imie: e.target.value }))}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-3 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            </div>
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Nazwisko</label>
+              <input value={form.nazwisko} onChange={e => setForm(f => ({ ...f, nazwisko: e.target.value }))}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-3 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            </div>
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Login *</label>
+            <input value={form.login} onChange={e => setForm(f => ({ ...f, login: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" required />
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">
+              {wyslijMail ? 'Hasło (opcjonalne — użytkownik ustawi przez link)' : 'Hasło * (min. 8 znaków)'}
+            </label>
+            <input type="password" value={form.haslo} onChange={e => setForm(f => ({ ...f, haslo: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600 disabled:opacity-40"
+              minLength={wyslijMail ? 0 : 8} disabled={wyslijMail}
+              placeholder={wyslijMail ? 'zostanie ustawione przez użytkownika' : ''} />
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Email</label>
+            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
+              placeholder="opcjonalnie" />
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Rola *</label>
+            <select value={form.rola} onChange={e => setForm(f => ({ ...f, rola: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
+              <option value="admin">Admin</option>
+              <option value="ksiegowy">Księgowy</option>
+              <option value="podglad_pelny">Podgląd pełny</option>
+              <option value="podglad">Podgląd (własny uczeń)</option>
+            </select>
+          </div>
+          {form.rola === 'podglad' && (
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń</label>
+              <select value={form.uczen_id} onChange={e => setForm(f => ({ ...f, uczen_id: e.target.value }))}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
+                <option value="">— brak powiązania —</option>
+                {ucznowie.map(u => <option key={u.id} value={u.id}>{u.nazwisko} {u.imie}</option>)}
+              </select>
+            </div>
+          )}
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" checked={wyslijMail} onChange={e => setWyslijMail(e.target.checked)}
+              className="mt-0.5 rounded border-sage-300" />
+            <span className="font-body text-sm text-ink dark:text-gray-100">
+              Wyślij mail powitalny z linkiem do ustawienia hasła <span className="text-sage-400">(ważny 15 min)</span>
+            </span>
+          </label>
+          {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-sage-200 rounded-xl py-2.5 font-body text-ink hover:bg-sage-50">Anuluj</button>
+            <button type="submit" disabled={saving}
+              className="flex-1 bg-ink text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700 disabled:opacity-50">
+              {saving ? '...' : wyslijMail ? 'Dodaj i wyślij mail' : 'Dodaj'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal: edytuj użytkownika ─────────────────────────────────────────────────
+function EdytujModal({ user, ucznowie, onClose, onSave }) {
+  const [form, setForm] = useState({
+    rola: user.rola,
+    email: user.email || '',
+    uczen_id: user.uczen_id || '',
+    imie: user.imie || '',
+    nazwisko: user.nazwisko || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault(); setSaving(true); setErr('');
+    try { await onSave(user.id, form); onClose(); }
+    catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b border-sage-100 dark:border-gray-700 dark:border-gray-700">
+          <h3 className="font-display font-700 text-ink dark:text-gray-100">Edytuj użytkownika</h3>
+          <p className="font-body text-sm text-sage-600 dark:text-sage-400 dark:text-gray-500">{user.login}</p>
+        </div>
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Imię</label>
+              <input value={form.imie} onChange={e => setForm(f => ({ ...f, imie: e.target.value }))}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-3 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            </div>
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Nazwisko</label>
+              <input value={form.nazwisko} onChange={e => setForm(f => ({ ...f, nazwisko: e.target.value }))}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-3 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            </div>
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Rola</label>
+            <select value={form.rola} onChange={e => setForm(f => ({ ...f, rola: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
+              <option value="admin">Admin</option>
+              <option value="ksiegowy">Księgowy</option>
+              <option value="podglad_pelny">Podgląd pełny</option>
+              <option value="podglad">Podgląd (własny uczeń)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Email</label>
+            <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
+              placeholder="opcjonalnie" />
+          </div>
+          {form.rola === 'podglad' && (
+            <div>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń</label>
+              <select value={form.uczen_id} onChange={e => setForm(f => ({ ...f, uczen_id: e.target.value }))}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
+                <option value="">— brak powiązania —</option>
+                {ucznowie.map(u => <option key={u.id} value={u.id}>{u.nazwisko} {u.imie}</option>)}
+              </select>
+            </div>
+          )}
+          {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose}
+              className="flex-1 border border-sage-200 rounded-xl py-2.5 font-body text-ink hover:bg-sage-50">Anuluj</button>
+            <button type="submit" disabled={saving}
+              className="flex-1 bg-ink text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700 disabled:opacity-50">
+              {saving ? '...' : 'Zapisz'}
+            </button>
+          </div>
+          {user.email && (
+            <button type="button"
+              onClick={async () => {
+                if (!confirm(`Wysłać link do ustawienia hasła na ${user.email}? Link będzie ważny 15 minut.`)) return;
+                try { await api.wyslijZaproszenie(user.id); onClose(); alert('Mail wysłany!'); }
+                catch (e) { alert('Błąd: ' + e.message); }
+              }}
+              className="w-full border border-sage-200 text-sage-600 font-body text-sm py-2.5 rounded-xl hover:bg-sage-50">
+              ✉ Wyślij link do ustawienia hasła
+            </button>
+          )}
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Modal: import CSV użytkowników ────────────────────────────────────────────
+function ImportModal({ onClose, onDone }) {
+  const [csv, setCsv] = useState('');
+  const [result, setResult] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef();
+
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setCsv(reader.result);
+    reader.readAsText(f, 'UTF-8');
+  };
+
+  const submit = async () => {
+    if (!csv.trim()) return;
+    setSaving(true);
+    try {
+      const res = await api.importUzytkownicyCsv(csv);
+      setResult(res);
+      onDone();
+    } catch (e) {
+      setResult({ blad: e.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl">
+        <div className="p-5 border-b border-sage-100 dark:border-gray-700 dark:border-gray-700">
+          <h3 className="font-display font-700 text-ink dark:text-gray-100">Import użytkowników z CSV</h3>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="bg-sage-50 dark:bg-gray-700/50 rounded-xl px-4 py-3 font-body text-xs text-sage-600 space-y-1">
+            <div className="font-500">Format pliku CSV (separator: średnik):</div>
+            <div className="font-mono">login;haslo;rola;email;imie;nazwisko</div>
+            <div className="font-mono text-sage-400 dark:text-gray-500">jan.k;haslo123;podglad;jan@szkola.pl;Jan;Kowalski</div>
+            <div className="mt-1 space-y-0.5">
+              <div>• rola: <span className="font-mono">ksiegowy</span> / <span className="font-mono">podglad_pelny</span> / <span className="font-mono">podglad</span> (domyślnie podglad)</div>
+              <div>• email, imie, nazwisko — opcjonalne</div>
+              <div>• hasło wymagane przy następnym logowaniu</div>
+            </div>
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Wybierz plik CSV</label>
+            <input type="file" accept=".csv,.txt" ref={fileRef} onChange={handleFile}
+              className="w-full text-sm font-body text-sage-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sage-100 file:text-sage-700 hover:file:bg-sage-200" />
+          </div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">lub wklej zawartość</label>
+            <textarea value={csv} onChange={e => setCsv(e.target.value)} rows={4}
+              className="w-full border border-sage-200 rounded-xl px-4 py-2.5 font-mono text-xs text-ink focus:outline-none focus:border-sage-600 resize-none"
+              placeholder="login;haslo;rola;email;imie;nazwisko" />
+          </div>
+          {result && (
+            <div className={`rounded-xl px-4 py-3 font-body text-sm space-y-1 ${result.blad ? 'bg-rose-50 text-rose-600' : 'bg-sage-100 text-sage-700'}`}>
+              {result.blad ? <div>Błąd: {result.blad}</div> : (<>
+                <div>✓ Dodano: {result.dodano} użytkowników</div>
+                {result.pominieto > 0 && <div>⚠ Pominięto: {result.pominieto}</div>}
+                {result.bledy?.map((b, i) => <div key={i} className="text-xs text-rose-500">{b}</div>)}
+              </>)}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button onClick={onClose}
+              className="flex-1 border border-sage-200 rounded-xl py-2.5 font-body text-ink hover:bg-sage-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700">
+              {result ? 'Zamknij' : 'Anuluj'}
+            </button>
+            {!result && (
+              <button onClick={submit} disabled={saving || !csv.trim()}
+                className="flex-1 bg-ink text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700 disabled:opacity-40">
+                {saving ? 'Importuję...' : 'Importuj'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Główny komponent ──────────────────────────────────────────────────────────
+export default function Uzytkownicy() {
+  const [uzytkownicy, setUzytkownicy] = useState([]);
+  const [ucznowie, setUcznowie] = useState([]);
+  const [dodajModal, setDodajModal] = useState(false);
+  const [edytujUser, setEdytujUser] = useState(null);
+  const [importModal, setImportModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState({ text: '', type: 'ok' });
+
+  const showMsg = (text, type = 'ok') => {
+    setMsg({ text, type });
+    setTimeout(() => setMsg({ text: '', type: 'ok' }), 3000);
+  };
+
+  const { user } = useAuth();
+  const isAdmin = user?.rola === 'admin';
+
+  const load = async () => {
+    const [u, uc] = await Promise.all([api.getUzytkownicy(), api.getUcznowie()]);
+    setUzytkownicy(u); setUcznowie(uc); setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDodaj = async (form, wyslijMail) => {
+    // Jeśli wysyłamy mail — ustaw tymczasowe hasło jeśli nie podano
+    const dataDoWyslania = { ...form };
+    if (wyslijMail && !form.haslo) {
+      dataDoWyslania.haslo = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    }
+    const nowy = await api.addUzytkownik(dataDoWyslania);
+    if (wyslijMail && nowy?.id) {
+      try {
+        await api.wyslijZaproszenie(nowy.id);
+        showMsg('Użytkownik dodany — mail powitalny wysłany');
+      } catch {
+        showMsg('Użytkownik dodany, ale nie udało się wysłać maila', 'err');
+      }
+    } else {
+      showMsg('Użytkownik dodany');
+    }
+    load();
+  };
+  const handleEdytuj = async (id, form) => { await api.updateUzytkownik(id, form); showMsg('Zapisano'); load(); };
+  const handleDelete = async (id) => {
+    if (!confirm('Usunąć użytkownika?')) return;
+    await api.deleteUzytkownik(id); load();
+  };
+  const handleMfaWymuszone = async (id, current) => { await api.setMfaWymuszone(id, !current); load(); };
+  const handleResetMfa = async (id) => {
+    if (!confirm('Zresetować MFA temu użytkownikowi? Będzie musiał skonfigurować je ponownie.')) return;
+    await api.resetMfa(id);
+    showMsg('MFA zostało zresetowane');
+    load();
+  };
+
+  const handleWymusHaslo = async (id) => {
+    if (!confirm('Wymusić zmianę hasła przy następnym logowaniu?')) return;
+    await api.wymusPrzycZmianyHasla(id);
+    showMsg('Zmiana hasła zostanie wymuszona');
+    load();
+  };
+
+  const roleLabel = (r) => r === 'admin' ? 'Admin' : r === 'ksiegowy' ? 'Księgowy' : r === 'podglad_pelny' ? 'Podgląd pełny' : 'Podgląd';
+  const roleBg = (r) => r === 'admin' ? 'bg-purple-100 text-purple-700' : r === 'ksiegowy' ? 'bg-sage-100 text-sage-700' : r === 'podglad_pelny' ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-500';
+
+  if (loading) return <div className="font-body text-sage-600 py-12 text-center">Ładowanie...</div>;
+
+  return (
+    <div className="max-w-5xl">
+      {dodajModal && <DodajModal ucznowie={ucznowie} onClose={() => setDodajModal(false)} onSave={handleDodaj} />}
+      {edytujUser && <EdytujModal user={edytujUser} ucznowie={ucznowie} onClose={() => setEdytujUser(null)} onSave={handleEdytuj} />}
+      {importModal && <ImportModal onClose={() => setImportModal(false)} onDone={load} />}
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-700 text-ink dark:text-gray-100">Użytkownicy</h1>
+          <p className="font-body text-sage-600 mt-1">{uzytkownicy.length} kont</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setImportModal(true)}
+            className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700">
+            ⬆ Import CSV
+          </button>
+          <button onClick={() => setDodajModal(true)}
+            className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">
+            + Nowy użytkownik
+          </button>
+        </div>
+      </div>
+
+      {msg.text && (
+        <div className={`rounded-xl px-4 py-3 font-body text-sm mb-4 ${msg.type === 'ok' ? 'bg-sage-100 border border-sage-200 text-sage-700' : 'bg-rose-50 border border-rose-200 text-rose-600'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 divide-y divide-sage-50 dark:divide-gray-700">
+        {uzytkownicy.map(u => (
+          <div key={u.id} className="px-5 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-body font-500 text-ink dark:text-gray-100">{u.login}</span>
+                  {(u.imie || u.nazwisko) && (
+                    <span className="font-body text-sm text-sage-500 dark:text-gray-400">({u.imie} {u.nazwisko})</span>
+                  )}
+                  <span className={`text-xs font-mono px-2 py-0.5 rounded-full ${roleBg(u.rola)}`}>
+                    {roleLabel(u.rola)}
+                  </span>
+                  {u.mfa_enabled && <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-green-50 text-green-600">MFA ✓</span>}
+                  {u.force_password_change && <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Zmiana hasła ⚠</span>}
+                </div>
+                {u.email && <div className="font-body text-xs text-sage-400 mt-0.5">{u.email}</div>}
+                {u.uczen_imie && <div className="font-body text-xs text-sage-400 mt-0.5">↳ {u.uczen_imie} {u.uczen_nazwisko}</div>}
+              </div>
+              {isAdmin && (
+                <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                  <button onClick={() => setEdytujUser(u)}
+                    className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1 rounded-lg hover:bg-sage-50">
+                    Edytuj
+                  </button>
+                  <button onClick={() => handleMfaWymuszone(u.id, u.mfa_wymuszone)}
+                    className={`text-xs font-body px-3 py-1 rounded-lg border transition-colors ${
+                      u.mfa_wymuszone ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-sage-200 text-sage-400 hover:border-sage-400'
+                    }`}>
+                    {u.mfa_wymuszone ? 'MFA ✓' : 'MFA'}
+                  </button>
+                  {u.mfa_enabled && (
+                    <button
+                      onClick={() => u.id !== user?.id && handleResetMfa(u.id)}
+                      disabled={u.id === user?.id}
+                      title={u.id === user?.id ? 'Własne MFA wyłącz w Ustawieniach' : 'Reset MFA'}
+                      className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
+                        u.id === user?.id
+                          ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                          : 'border-rose-200 text-rose-500 hover:bg-rose-50'
+                      }`}>
+                      Reset MFA
+                    </button>
+                  )}
+                  {!u.force_password_change && (
+                    <button onClick={() => handleWymusHaslo(u.id)}
+                      className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
+                      Wymuś hasło
+                    </button>
+                  )}
+                  <button onClick={() => handleDelete(u.id)}
+                    className="text-xs font-body text-rose-400 hover:text-rose-500 underline">
+                    Usuń
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
