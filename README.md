@@ -181,6 +181,7 @@ docker-compose up -d --build
 
 ```
 klasowy-ksiegowy/
+├── backup_data/
 ├── backend/
 │   ├── src/
 │   │   ├── routes/         # Endpointy API
