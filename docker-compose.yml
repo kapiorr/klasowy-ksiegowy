@@ -38,6 +38,7 @@ services:
       - .env
     environment:
       PORT: 3001
+      TZ: Europe/Warsaw
     volumes:
       - ./backup_data:/app/backups
     depends_on:
