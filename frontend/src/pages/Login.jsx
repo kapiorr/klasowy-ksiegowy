@@ -22,6 +22,10 @@ export default function Login() {
         ...(step === 'mfa' ? { mfa_kod: form.mfa_kod } : {}),
       });
 
+      if (data?.awaiting_reset) {
+        setError('Zmiana hasła możliwa tylko przez link wysłany na email. Sprawdź skrzynkę pocztową.');
+        setLoading(false); return;
+      }
       if (data?.mfa_required) {
         setStep('mfa'); setLoading(false); return;
       }

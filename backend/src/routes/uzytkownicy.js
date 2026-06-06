@@ -132,6 +132,16 @@ router.patch('/:id/wymus-zmiane-hasla', requireAdmin, async (req, res) => {
   }
 });
 
+// PATCH /uzytkownicy/:id/cofnij-wymuszenie-hasla
+router.patch('/:id/cofnij-wymuszenie-hasla', requireAdmin, async (req, res) => {
+  try {
+    await db.query('UPDATE uzytkownicy SET force_password_change=FALSE WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 // DELETE /uzytkownicy/:id
 router.delete('/:id', requireAdmin, async (req, res) => {
   if (req.params.id === req.user.id) {
@@ -213,11 +223,11 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
 
     // Unieważnij stare tokeny resetu
     await db.query('UPDATE tokeny_reset SET wykorzystany=TRUE WHERE uzytkownik_id=$1', [req.params.id]);
-    // Ustaw losowe hasło — stare hasło przestaje działać, tylko link z maila pozwoli się zalogować
+    // Ustaw losowe hasło i flagę — tylko link z maila pozwoli się zalogować
     const randomHaslo = crypto.randomBytes(32).toString('hex');
     const randomHash = await hashHaslo(randomHaslo);
     await db.query(
-      'UPDATE uzytkownicy SET haslo_hash=$1, sessions_invalidated_at=NOW() WHERE id=$2',
+      'UPDATE uzytkownicy SET haslo_hash=$1, sessions_invalidated_at=NOW(), awaiting_password_reset=TRUE WHERE id=$2',
       [randomHash, req.params.id]
     );
 

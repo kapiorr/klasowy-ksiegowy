@@ -331,10 +331,16 @@ export default function Uzytkownicy() {
     load();
   };
 
-  const handleWymusHaslo = async (id) => {
-    if (!confirm('Wymusić zmianę hasła przy następnym logowaniu?')) return;
-    await api.wymusPrzycZmianyHasla(id);
-    showMsg('Zmiana hasła zostanie wymuszona');
+  const handleWymusHaslo = async (u) => {
+    if (u.force_password_change) {
+      if (!confirm('Cofnąć wymuszenie zmiany hasła?')) return;
+      await api.cofnijWymuszenieHasla(u.id);
+      showMsg('Wymuszenie zmiany hasła cofnięte');
+    } else {
+      if (!confirm('Wymusić zmianę hasła przy następnym logowaniu?')) return;
+      await api.wymusPrzycZmianyHasla(u.id);
+      showMsg('Zmiana hasła zostanie wymuszona');
+    }
     load();
   };
 
@@ -416,12 +422,14 @@ export default function Uzytkownicy() {
                       Reset MFA
                     </button>
                   )}
-                  {!u.force_password_change && (
-                    <button onClick={() => handleWymusHaslo(u.id)}
-                      className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
-                      Wymuś hasło
-                    </button>
-                  )}
+                  <button onClick={() => handleWymusHaslo(u)}
+                    className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
+                      u.force_password_change
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                        : 'border-amber-200 text-amber-600 hover:bg-amber-50'
+                    }`}>
+                    {u.force_password_change ? 'Cofnij wymuszenie' : 'Wymuś hasło'}
+                  </button>
                   <button onClick={() => handleDelete(u.id)}
                     className="text-xs font-body text-rose-400 hover:text-rose-500 underline">
                     Usuń

@@ -81,6 +81,7 @@ async function migrate() {
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS imie VARCHAR(100)`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS nazwisko VARCHAR(100)`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS force_password_change BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS awaiting_password_reset BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_secret TEXT`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT[]`,
@@ -174,11 +175,17 @@ async function seedAdmin() {
   const login = process.env.ADMIN_LOGIN;
   const haslo = process.env.ADMIN_HASLO;
   if (!login || !haslo) return;
-  const existing = await db.query('SELECT id FROM uzytkownicy WHERE login=$1', [login]);
-  if (existing.rows.length > 0) return;
+  const existing = await db.query('SELECT id, rola FROM uzytkownicy WHERE login=$1', [login]);
+  if (existing.rows.length > 0) {
+    if (existing.rows[0].rola !== 'admin') {
+      await db.query("UPDATE uzytkownicy SET rola='admin' WHERE login=$1", [login]);
+      console.log('Zaktualizowano role konta ' + login + ' na admin');
+    }
+    return;
+  }
   const haslo_hash = await hashHaslo(haslo);
-  await db.query('INSERT INTO uzytkownicy (login, haslo_hash, rola) VALUES ($1,$2,$3)', [login, haslo_hash, 'ksiegowy']);
-  console.log(`Utworzono konto ksiegowego: "${login}"`);
+  await db.query('INSERT INTO uzytkownicy (login, haslo_hash, rola) VALUES ($1,$2,$3)', [login, haslo_hash, 'admin']);
+  console.log('Utworzono konto admin: ' + login);
 }
 
 app.listen(PORT, async () => {

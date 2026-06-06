@@ -19,7 +19,7 @@ router.get('/', requireAdmin, async (req, res) => {
       db.query('SELECT * FROM skladka_ucznowie'),
       db.query('SELECT * FROM wplaty ORDER BY created_at'),
       db.query('SELECT id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at FROM wyplaty ORDER BY created_at'),
-      db.query('SELECT id, login, haslo_hash, rola, uczen_id, created_at FROM uzytkownicy ORDER BY created_at'),
+      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
     ]);
 
     const wyplaty = wyplatyRaw.rows.map(w => ({
@@ -68,12 +68,12 @@ router.post('/restore', requireAdmin, async (req, res) => {
     await client.query('DELETE FROM ucznowie');
 
     for (const r of ucznowie) {
-      await client.query('INSERT INTO ucznowie (id, imie, nazwisko, created_at) VALUES ($1,$2,$3,$4)',
-        [r.id, r.imie, r.nazwisko, r.created_at]);
+      await client.query('INSERT INTO ucznowie (id, imie, nazwisko, aktywny, created_at) VALUES ($1,$2,$3,$4,$5)',
+        [r.id, r.imie, r.nazwisko, r.aktywny !== false, r.created_at]);
     }
     for (const r of skladki) {
-      await client.query('INSERT INTO skladki (id, nazwa, kwota_na_osobe, termin, opis, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-        [r.id, r.nazwa, r.kwota_na_osobe, r.termin, r.opis, r.status, r.created_at]);
+      await client.query('INSERT INTO skladki (id, nazwa, kwota_na_osobe, termin, opis, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
+        [r.id, r.nazwa, r.kwota_na_osobe, r.termin, r.opis, r.status || 'aktywna', r.created_at]);
     }
     for (const r of skladka_ucznowie) {
       await client.query('INSERT INTO skladka_ucznowie (skladka_id, uczen_id) VALUES ($1,$2)',
@@ -89,8 +89,31 @@ router.post('/restore', requireAdmin, async (req, res) => {
         [r.id, r.skladka_id, r.kwota, r.opis, r.data, r.zalacznik_nazwa, r.zalacznik_typ, dane, r.created_at]);
     }
     for (const r of uzytkownicy) {
-      await client.query('INSERT INTO uzytkownicy (id, login, haslo_hash, rola, uczen_id, created_at) VALUES ($1,$2,$3,$4,$5,$6)',
-        [r.id, r.login, r.haslo_hash, r.rola, r.uczen_id, r.created_at]);
+      await client.query(
+        `INSERT INTO uzytkownicy
+           (id, login, haslo_hash, imie, nazwisko, rola, email, uczen_id,
+            mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone,
+            force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         ON CONFLICT (id) DO UPDATE SET
+           haslo_hash = EXCLUDED.haslo_hash,
+           rola = EXCLUDED.rola,
+           email = EXCLUDED.email,
+           imie = EXCLUDED.imie,
+           nazwisko = EXCLUDED.nazwisko,
+           mfa_secret = EXCLUDED.mfa_secret,
+           mfa_enabled = EXCLUDED.mfa_enabled,
+           mfa_backup_codes = EXCLUDED.mfa_backup_codes,
+           mfa_wymuszone = EXCLUDED.mfa_wymuszone,
+           force_password_change = EXCLUDED.force_password_change,
+           awaiting_password_reset = EXCLUDED.awaiting_password_reset`,
+        [r.id, r.login, r.haslo_hash, r.imie || null, r.nazwisko || null,
+         r.rola, r.email || null, r.uczen_id || null,
+         r.mfa_secret || null, r.mfa_enabled || false,
+         r.mfa_backup_codes || null, r.mfa_wymuszone || false,
+         r.force_password_change || false, r.awaiting_password_reset || false,
+         r.sessions_invalidated_at || null, r.created_at]
+      );
     }
 
     await client.query('COMMIT');

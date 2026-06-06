@@ -35,6 +35,9 @@ export async function request(path, options = {}) {
       window.location.href = '/zablokowany';
       return;
     }
+    if (body.awaiting_reset) {
+      return body; // przekaż do wywołującego
+    }
     throw new Error(body.error || 'Brak uprawnień');
   }
   if (!res.ok) {
@@ -66,6 +69,7 @@ export const api = {
   resetMfa: (id) => request(`/uzytkownicy/${id}/reset-mfa`, { method: 'PATCH' }),
   wyslijZaproszenie: (id) => request(`/uzytkownicy/${id}/wyslij-zaproszenie`, { method: 'POST' }),
   wymusPrzycZmianyHasla: (id) => request(`/uzytkownicy/${id}/wymus-zmiane-hasla`, { method: 'PATCH' }),
+  cofnijWymuszenieHasla: (id) => request(`/uzytkownicy/${id}/cofnij-wymuszenie-hasla`, { method: 'PATCH' }),
   importUzytkownicyCsv: (csv) => request('/uzytkownicy/import-csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   deleteUzytkownik: (id) => request(`/uzytkownicy/${id}`, { method: 'DELETE' }),
   wymuszonaZmianaHasla: (user_id, nowe_haslo) => request('/auth/wymuszona-zmiana-hasla', { method: 'POST', body: JSON.stringify({ user_id, nowe_haslo }) }),
@@ -84,6 +88,7 @@ export const api = {
   addSkladka: (data) => request('/skladki', { method: 'POST', body: JSON.stringify(data) }),
   updateSkladka: (id, data) => request(`/skladki/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteSkladka: (id) => request(`/skladki/${id}`, { method: 'DELETE' }),
+
   setSkladkaStatus: (id, status) => request(`/skladki/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   removeUczenFromSkladka: (skladkaId, uczenId) => request(`/skladki/${skladkaId}/uczniowie/${uczenId}`, { method: 'DELETE' }),
   addUczenToSkladka: (skladkaId, uczenId) => request(`/skladki/${skladkaId}/uczniowie/${uczenId}`, { method: 'POST' }),

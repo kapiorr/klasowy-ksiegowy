@@ -49,6 +49,11 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Nieprawidłowy login lub hasło' });
     }
 
+    // Sprawdź czy czeka na reset hasła przez link — przed weryfikacją hasła
+    if (user.awaiting_password_reset) {
+      return res.status(403).json({ awaiting_reset: true, error: 'Zmiana hasła możliwa tylko przez link wysłany na email.' });
+    }
+
     const valid = await verifyHaslo(haslo, user.haslo_hash);
     if (!valid) {
       await log({ uzytkownik_id: user.id, login_proba: login, ip, akcja: 'login_fail', sukces: false, szczegoly: 'Złe hasło' });
@@ -210,7 +215,7 @@ router.post('/reset-hasla/ustaw', async (req, res) => {
     const tokenRow = result.rows[0];
     const haslo_hash = await hashHaslo(nowe_haslo);
 
-    await db.query('UPDATE uzytkownicy SET haslo_hash=$1 WHERE id=$2', [haslo_hash, tokenRow.uzytkownik_id]);
+    await db.query('UPDATE uzytkownicy SET haslo_hash=$1, awaiting_password_reset=FALSE, sessions_invalidated_at=NOW() WHERE id=$2', [haslo_hash, tokenRow.uzytkownik_id]);
     await db.query('UPDATE tokeny_reset SET wykorzystany=TRUE WHERE id=$1', [tokenRow.id]);
 
     res.json({ ok: true });
