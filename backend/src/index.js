@@ -76,6 +76,13 @@ async function migrate() {
     `CREATE EXTENSION IF NOT EXISTS pg_stat_statements`,
     `ALTER TABLE ucznowie ADD COLUMN IF NOT EXISTS aktywny BOOLEAN NOT NULL DEFAULT TRUE`,
     `ALTER TABLE skladki ADD COLUMN IF NOT EXISTS kolejnosc INTEGER NOT NULL DEFAULT 0`,
+    `CREATE INDEX IF NOT EXISTS idx_wplaty_skladka_id ON wplaty(skladka_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_wplaty_uczen_id ON wplaty(uczen_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_wyplaty_skladka_id ON wyplaty(skladka_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_skladka_ucznowie_skladka ON skladka_ucznowie(skladka_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_skladka_ucznowie_uczen ON skladka_ucznowie(uczen_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_logi_created_at ON logi(created_at DESC)`,
+    `CREATE INDEX IF NOT EXISTS idx_logi_uzytkownik ON logi(uzytkownik_id)`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sessions_invalidated_at TIMESTAMPTZ`,
     // Zawsze aktualizuj constraint roli — bezpieczne bo DROP IF EXISTS
     `ALTER TABLE uzytkownicy DROP CONSTRAINT IF EXISTS uzytkownicy_rola_check`,
