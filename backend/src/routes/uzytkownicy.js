@@ -63,6 +63,15 @@ router.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const stary = await db.query('SELECT login, rola, email, imie, nazwisko FROM uzytkownicy WHERE id=$1', [req.params.id]);
     const staryRow = stary.rows[0];
+
+    // Nie pozwól jedynemu adminowi zmienić sobie roli
+    if (staryRow?.rola === 'admin' && rola && rola !== 'admin' && req.params.id === req.user.id) {
+      const adminCount = await db.query("SELECT COUNT(*) FROM uzytkownicy WHERE rola='admin'");
+      if (parseInt(adminCount.rows[0].count) <= 1) {
+        return res.status(400).json({ error: 'Nie możesz zmienić roli — jesteś jedynym administratorem.' });
+      }
+    }
+
     const result = await db.query(
       `UPDATE uzytkownicy SET
         rola = COALESCE($1, rola),
