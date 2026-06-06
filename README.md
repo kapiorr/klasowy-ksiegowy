@@ -108,17 +108,26 @@ cp .env.example .env
 Edytuj `.env`:
 
 ```env
+# ─────────────────────────────────────────────────────────
+# Generowanie losowych stringów:
+#   openssl rand -hex 32     → 64-znakowy string hex
+#   openssl rand -base64 32  → ~44-znakowy string base64
+# Każda zmienna powinna mieć INNY, unikalny string!
+# ─────────────────────────────────────────────────────────
+
 # Konto administratora (tworzone automatycznie przy pierwszym uruchomieniu)
 ADMIN_LOGIN=admin
 ADMIN_HASLO=bezpieczne_haslo
 
-# JWT — wygeneruj losowy string, np: openssl rand -hex 32
+# JWT — wygeneruj: openssl rand -hex 32
 JWT_SECRET=
 
-# Bezpieczeństwo haseł — wygeneruj losowy string
+# Bezpieczeństwo haseł (pieprz) — wygeneruj: openssl rand -hex 32
+# UWAGA: NIE ZMIENIAJ po pierwszym uruchomieniu — unieważni wszystkie hasła!
 PEPPER=
 
-# Szyfrowanie MFA — wygeneruj: openssl rand -hex 32
+# Szyfrowanie sekretów MFA — wygeneruj: openssl rand -hex 32
+# UWAGA: NIE ZMIENIAJ po pierwszym uruchomieniu — unieważni wszystkie kody MFA!
 MFA_ENCRYPTION_KEY=
 
 # PostgreSQL
@@ -127,7 +136,7 @@ POSTGRES_PASSWORD=haslo_do_bazy
 POSTGRES_DB=klasowy_ksiegowy
 DATABASE_URL=postgres://ksiegowy:haslo_do_bazy@db:5432/klasowy_ksiegowy
 
-# Email (Mailgun SMTP) — opcjonalne
+# Email (Mailgun SMTP) — opcjonalne, wymagane do resetowania hasła i zaproszeń
 EMAIL_SERVER=smtp.mailgun.org
 EMAIL_SERVER_PORT=587
 EMAIL_SERVER_USER=postmaster@twojadomena.pl
@@ -135,8 +144,11 @@ EMAIL_SERVER_PASSWORD=
 EMAIL_FROM=noreply@twojadomena.pl
 ADMIN_EMAIL=admin@twojadomena.pl
 
-# URL aplikacji
+# URL aplikacji (używany w linkach w mailach)
 APP_URL=https://twojadomena.pl
+
+# Godzina automatycznego backupu (0-23, czas lokalny kontenera)
+BACKUP_HOUR=5
 ```
 
 Ustaw odpowiednie uprawnienia:
@@ -185,9 +197,11 @@ klasowy-ksiegowy/
 │   ├── src/
 │   │   ├── routes/         # Endpointy API
 │   │   ├── middleware/     # Autoryzacja JWT
+│   │   ├── fonts/          # Fonty DejaVu (PDF)
 │   │   ├── crypto.js       # Argon2, AES-256-GCM
 │   │   ├── logger.js       # Logi aktywności
 │   │   ├── mailer.js       # Email (Mailgun)
+│   │   ├── scheduler.js    # Automatyczny backup
 │   │   └── filecheck.js    # Weryfikacja magic bytes
 │   ├── init.sql            # Schemat bazy danych
 │   └── Dockerfile
@@ -199,6 +213,8 @@ klasowy-ksiegowy/
 │   │   └── api.js          # Klient API
 │   ├── public/             # PWA manifest, ikony, service worker
 │   └── Dockerfile
+├── backup_data/            # Automatyczne backupy (ignorowane przez git)
+│   └── .gitignore
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
