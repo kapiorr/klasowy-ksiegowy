@@ -104,6 +104,11 @@ router.post('/restore', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /backup/config — konfiguracja backupu
+router.get('/config', requireAdmin, (req, res) => {
+  res.json({ backup_hour: parseInt(process.env.BACKUP_HOUR ?? '5') });
+});
+
 // GET /backup/auto — lista automatycznych backupów
 router.get('/auto', requireAdmin, (req, res) => {
   try {

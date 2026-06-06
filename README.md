@@ -1,7 +1,6 @@
 # 📒 Klasowy Księgowy
 
 Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i składkami uczniów. Zaprojektowana z myślą o prostocie obsługi i bezpieczeństwie, dostępna również jako PWA na urządzeniach mobilnych.
-<small>*(wymęczone przy pomocy Klaudiusza ;))*</small>
 
 ---
 
@@ -182,7 +181,6 @@ docker-compose up -d --build
 
 ```
 klasowy-ksiegowy/
-├── backup_data/
 ├── backend/
 │   ├── src/
 │   │   ├── routes/         # Endpointy API

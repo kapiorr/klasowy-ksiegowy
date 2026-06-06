@@ -72,11 +72,12 @@ async function runBackup() {
   }
 }
 
-// Zaplanuj backup codziennie o 5:00
+// Zaplanuj backup codziennie o BACKUP_HOUR
 function scheduleDaily() {
+  const hour = parseInt(process.env.BACKUP_HOUR ?? '5');
   const now = new Date();
   const next = new Date();
-  next.setHours(5, 0, 0, 0);
+  next.setHours(hour, 0, 0, 0);
   if (next <= now) next.setDate(next.getDate() + 1);
 
   const delay = next - now;
