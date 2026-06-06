@@ -543,16 +543,17 @@ export default function SkladkaDetail() {
   if (loading) return <div className="font-body text-sage-600 py-12 text-center">Ładowanie...</div>;
   if (!data) return <div className="font-body text-rose-500 py-12 text-center">Nie znaleziono składki</div>;
 
-  const zaplacili = wplaty.filter(w => statusOf(w) === 'zaplacone').length;
-  const czesciowo = wplaty.filter(w => statusOf(w) === 'czesciowo').length;
-  const niezaplacili = wplaty.filter(w => statusOf(w) === 'niezaplacone').length;
-  const totalWplaty = wplaty.reduce((s, w) => s + parseFloat(w.wplacono), 0);
-  const totalOgolne = ogolne.reduce((s, w) => s + parseFloat(w.kwota), 0);
-  const totalZebrano = totalWplaty + totalOgolne;
-  const totalCel = wplaty.reduce((s, w) => s + parseFloat(w.kwota_na_osobe), 0);
-  const totalWyplaty = wyplaty.reduce((s, w) => s + parseFloat(w.kwota), 0);
-  const saldo = totalZebrano - totalWyplaty;
+  // Dla podglądu użyj liczników z backendu (pełne dane), dla ksiegowego licz lokalnie
+  const zaplacili = data.liczniki ? parseInt(data.liczniki.zaplacili) : wplaty.filter(w => statusOf(w) === 'zaplacone').length;
+  const czesciowo = data.liczniki ? parseInt(data.liczniki.czesciowo) : wplaty.filter(w => statusOf(w) === 'czesciowo').length;
+  const niezaplacili = data.liczniki ? parseInt(data.liczniki.niezaplacili) : wplaty.filter(w => statusOf(w) === 'niezaplacone').length;
+  // Używaj danych z backendu dla poprawnych sum (podgląd widzi tylko swoje wpłaty)
+  const totalZebrano = parseFloat(data.zebrano_lacznie || 0);
+  const totalCel = parseFloat(data.cel_lacznie || 0);
+  const totalWyplaty = parseFloat(data.wyplacono_lacznie || 0);
+  const saldo = parseFloat(data.saldo || 0);
   const pct = totalCel > 0 ? Math.min((totalZebrano / totalCel) * 100, 100) : 0;
+  const totalOgolne = data.liczniki ? parseFloat(data.liczniki.ogolne || 0) : ogolne.reduce((s, w) => s + parseFloat(w.kwota), 0);
 
   return (
     <div className="max-w-3xl">
@@ -628,9 +629,9 @@ export default function SkladkaDetail() {
           <div className="bg-sage-600 h-2 rounded-full transition-all" style={{ width: `${pct}%` }} />
         </div>
         <div className="flex gap-4 text-xs font-mono flex-wrap">
-          <span className="text-sage-600 cursor-pointer hover:underline" onClick={() => { setTab('wplaty'); setFiltruj('zaplacone'); }}>✓ {zaplacili} zapłaciło</span>
-          <span className="text-amber-600 cursor-pointer hover:underline" onClick={() => { setTab('wplaty'); setFiltruj('czesciowo'); }}>◑ {czesciowo} częściowo</span>
-          <span className="text-rose-400 cursor-pointer hover:underline" onClick={() => { setTab('wplaty'); setFiltruj('niezaplacone'); }}>✗ {niezaplacili} nie zapłaciło</span>
+          <span className={`text-sage-600 ${isKsiegowy ? 'cursor-pointer hover:underline' : ''}`} onClick={() => isKsiegowy && setFiltruj('zaplacone')}>✓ {zaplacili} zapłaciło</span>
+          <span className={`text-amber-600 ${isKsiegowy ? 'cursor-pointer hover:underline' : ''}`} onClick={() => isKsiegowy && setFiltruj('czesciowo')}>◑ {czesciowo} częściowo</span>
+          <span className={`text-rose-400 ${isKsiegowy ? 'cursor-pointer hover:underline' : ''}`} onClick={() => isKsiegowy && setFiltruj('niezaplacone')}>✗ {niezaplacili} nie zapłaciło</span>
           {totalOgolne > 0 && <span className="text-sage-400 dark:text-gray-500">+{totalOgolne.toFixed(2)} zł ogólnych</span>}
         </div>
       </div>

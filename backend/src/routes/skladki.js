@@ -44,8 +44,22 @@ router.get('/', requireAuth, async (req, res) => {
 // GET /skladki/:id
 router.get('/:id', requireAuth, async (req, res) => {
   try {
-    const skladka = await db.query('SELECT * FROM skladki WHERE id=$1', [req.params.id]);
-    if (!skladka.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
+    // Pobierz składkę z pełnymi statystykami (tak samo jak lista)
+    const skladkaQ = await db.query(`
+      SELECT
+        s.*,
+        COALESCE(su.liczba_uczniow, 0)                    AS liczba_uczniow,
+        COALESCE(su.liczba_uczniow, 0) * s.kwota_na_osobe AS cel_lacznie,
+        COALESCE(w.zebrano_lacznie, 0)                    AS zebrano_lacznie,
+        COALESCE(wy.wyplacono_lacznie, 0)                 AS wyplacono_lacznie,
+        COALESCE(w.zebrano_lacznie, 0) - COALESCE(wy.wyplacono_lacznie, 0) AS saldo
+      FROM skladki s
+      LEFT JOIN (SELECT skladka_id, COUNT(*) AS liczba_uczniow FROM skladka_ucznowie GROUP BY skladka_id) su ON su.skladka_id = s.id
+      LEFT JOIN (SELECT skladka_id, SUM(kwota) AS zebrano_lacznie FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
+      LEFT JOIN (SELECT skladka_id, SUM(kwota) AS wyplacono_lacznie FROM wyplaty GROUP BY skladka_id) wy ON wy.skladka_id = s.id
+      WHERE s.id = $1
+    `, [req.params.id]);
+    if (!skladkaQ.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
 
     let wplatyQ;
     if (req.user.rola === 'podglad') {
@@ -60,7 +74,29 @@ router.get('/:id', requireAuth, async (req, res) => {
       );
     }
 
-    res.json({ ...skladka.rows[0], wplaty: wplatyQ.rows });
+    // Dla podglądu — pobierz też pełne liczniki uczniów
+    let liczniki = null;
+    if (req.user.rola === 'podglad') {
+      const lQ = await db.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE COALESCE(w.wplacono,0) >= s.kwota_na_osobe) AS zaplacili,
+          COUNT(*) FILTER (WHERE COALESCE(w.wplacono,0) > 0 AND COALESCE(w.wplacono,0) < s.kwota_na_osobe) AS czesciowo,
+          COUNT(*) FILTER (WHERE COALESCE(w.wplacono,0) = 0) AS niezaplacili,
+          COALESCE(SUM(og.kwota), 0) AS ogolne
+        FROM skladka_ucznowie su
+        JOIN skladki s ON s.id = su.skladka_id
+        LEFT JOIN (
+          SELECT uczen_id, skladka_id, SUM(kwota) AS wplacono FROM wplaty GROUP BY uczen_id, skladka_id
+        ) w ON w.uczen_id = su.uczen_id AND w.skladka_id = su.skladka_id
+        LEFT JOIN (
+          SELECT skladka_id, SUM(kwota) AS kwota FROM wplaty WHERE uczen_id IS NULL GROUP BY skladka_id
+        ) og ON og.skladka_id = su.skladka_id
+        WHERE su.skladka_id = $1
+      `, [req.params.id]);
+      liczniki = lQ.rows[0];
+    }
+
+    res.json({ ...skladkaQ.rows[0], wplaty: wplatyQ.rows, liczniki });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Błąd serwera' });

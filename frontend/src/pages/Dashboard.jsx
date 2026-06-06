@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
+import { useAuth } from '../context/AuthContext.jsx';
 
 function ProgressBar({ value, max }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
@@ -12,16 +13,43 @@ function ProgressBar({ value, max }) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [skladki, setSkladki] = useState([]);
+  const [mojeWplaty, setMojeWplaty] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isPodglad = user?.rola === 'podglad' && user?.uczen_id;
+
   useEffect(() => {
-    api.getSkladki().then(setSkladki).finally(() => setLoading(false));
+    const loads = [api.getSkladki()];
+    Promise.all(loads).then(([s]) => {
+      setSkladki(s);
+    }).finally(() => setLoading(false));
   }, []);
 
+  // Dla podglądu — pobierz wpłaty ucznia ze wszystkich aktywnych składek
+  useEffect(() => {
+    if (!isPodglad) return;
+    // Pobierz szczegóły każdej aktywnej składki żeby znać stan wpłat ucznia
+    api.getSkladki().then(async (s) => {
+      const aktywneS = s.filter(sk => sk.status === 'aktywna');
+      const details = await Promise.all(aktywneS.map(sk => api.getSkladka(sk.id)));
+      setMojeWplaty(details.map(d => ({
+        id: d.id,
+        nazwa: d.nazwa,
+        kwota_na_osobe: parseFloat(d.kwota_na_osobe || 0),
+        wplacono: d.wplaty?.[0] ? parseFloat(d.wplaty[0].wplacono || 0) : 0,
+        przypisany: d.wplaty?.length > 0,
+      })).filter(d => d.przypisany));
+    });
+  }, [isPodglad]);
+
   const aktywne = skladki.filter(s => s.status === 'aktywna');
-  // Saldo ze wszystkich składek (nie tylko aktywnych)
   const totalSaldo = skladki.reduce((sum, s) => sum + parseFloat(s.saldo || 0), 0);
+
+  // Kwoty do zapłaty dla podglądu
+  const doZaplaty = mojeWplaty.filter(w => w.wplacono < w.kwota_na_osobe);
+  const sumaDoZaplaty = doZaplaty.reduce((s, w) => s + (w.kwota_na_osobe - w.wplacono), 0);
 
   if (loading) return <div className="font-body text-sage-600 py-12 text-center">Ładowanie...</div>;
 
@@ -44,6 +72,32 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {isPodglad && mojeWplaty.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-amber-200 dark:border-amber-700 p-5 mb-8">
+          <div className="font-body text-sm text-amber-600 dark:text-amber-400 mb-1">Masz jeszcze do zapłacenia</div>
+          <div className={`font-display text-3xl font-700 mb-4 ${sumaDoZaplaty > 0 ? 'text-amber-600' : 'text-sage-600'}`}>
+            {sumaDoZaplaty.toFixed(2)} zł
+          </div>
+          <div className="space-y-2">
+            {mojeWplaty.map(w => {
+              const pozostalo = w.kwota_na_osobe - w.wplacono;
+              return (
+                <div key={w.id} className="flex items-center justify-between text-sm">
+                  <span className="font-body text-ink dark:text-gray-100">{w.nazwa}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-sage-500 text-xs">{w.wplacono.toFixed(2)} / {w.kwota_na_osobe.toFixed(2)} zł</span>
+                    {pozostalo > 0
+                      ? <span className="font-mono font-600 text-amber-600 text-xs bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">brakuje {pozostalo.toFixed(2)} zł</span>
+                      : <span className="font-mono font-600 text-sage-600 text-xs bg-sage-50 dark:bg-sage-900/30 px-2 py-0.5 rounded-full">✓ opłacono</span>
+                    }
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-4">
