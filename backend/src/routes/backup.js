@@ -72,8 +72,8 @@ router.post('/restore', requireAdmin, async (req, res) => {
         [r.id, r.imie, r.nazwisko, r.aktywny !== false, r.created_at]);
     }
     for (const r of skladki) {
-      await client.query('INSERT INTO skladki (id, nazwa, kwota_na_osobe, termin, opis, status, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING',
-        [r.id, r.nazwa, r.kwota_na_osobe, r.termin, r.opis, r.status || 'aktywna', r.created_at]);
+      await client.query('INSERT INTO skladki (id, nazwa, kwota_na_osobe, termin, opis, status, kolejnosc, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO NOTHING',
+        [r.id, r.nazwa, r.kwota_na_osobe, r.termin, r.opis, r.status || 'aktywna', r.kolejnosc || 0, r.created_at]);
     }
     for (const r of skladka_ucznowie) {
       await client.query('INSERT INTO skladka_ucznowie (skladka_id, uczen_id) VALUES ($1,$2)',

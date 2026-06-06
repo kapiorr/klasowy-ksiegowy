@@ -13,6 +13,7 @@ import wyplatyRouter from './routes/wyplaty.js';
 import backupRouter from './routes/backup.js';
 import logiRouter from './routes/logi.js';
 import statystykiRouter from './routes/statystyki.js';
+import raportRouter from './routes/raport.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -50,6 +51,7 @@ app.use('/api/wyplaty', wyplatyRouter);
 app.use('/api/backup', backupRouter);
 app.use('/api/logi', logiRouter);
 app.use('/api/statystyki', statystykiRouter);
+app.use('/api/raport', raportRouter);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
@@ -73,6 +75,7 @@ async function migrate() {
   const migrations = [
     `CREATE EXTENSION IF NOT EXISTS pg_stat_statements`,
     `ALTER TABLE ucznowie ADD COLUMN IF NOT EXISTS aktywny BOOLEAN NOT NULL DEFAULT TRUE`,
+    `ALTER TABLE skladki ADD COLUMN IF NOT EXISTS kolejnosc INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sessions_invalidated_at TIMESTAMPTZ`,
     // Zawsze aktualizuj constraint roli — bezpieczne bo DROP IF EXISTS
     `ALTER TABLE uzytkownicy DROP CONSTRAINT IF EXISTS uzytkownicy_rola_check`,

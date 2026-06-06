@@ -32,7 +32,7 @@ router.get('/', requireAuth, async (req, res) => {
         FROM wyplaty
         GROUP BY skladka_id
       ) wy ON wy.skladka_id = s.id
-      ORDER BY s.created_at DESC
+      ORDER BY s.kolejnosc ASC, s.created_at DESC
     `);
     res.json(result.rows);
   } catch (err) {
@@ -199,6 +199,20 @@ router.post('/:id/uczniowie/:uczenId', requireKsiegowy, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// PATCH /skladki/kolejnosc — zapisz kolejność
+router.patch('/kolejnosc', requireKsiegowy, async (req, res) => {
+  const { kolejnosc } = req.body;
+  if (!Array.isArray(kolejnosc)) return res.status(400).json({ error: 'Nieprawidlowe dane' });
+  try {
+    for (const { id, kolejnosc: k } of kolejnosc) {
+      await db.query('UPDATE skladki SET kolejnosc=$1 WHERE id=$2', [k, id]);
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Blad serwera' });
   }
 });
 

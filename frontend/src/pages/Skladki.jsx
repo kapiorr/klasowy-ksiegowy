@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, downloadSkladkaBackup } from '../api.js';
+import { api, downloadSkladkaBackup, downloadRaportPdf } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const STATUS_LABELS = { aktywna: 'Aktywna', zakonczona: 'Archiwalna', wstrzymana: 'Wstrzymana' };
@@ -84,6 +84,9 @@ function SkladkaModal({ skladka, onClose, onSave }) {
 export default function Skladki() {
   const { user } = useAuth();
   const [skladki, setSkladki] = useState([]);
+  const [generujePdf, setGenerujePdf] = useState(false);
+  const [dragId, setDragId] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -108,6 +111,22 @@ export default function Skladki() {
     load();
   };
 
+  const handleDragStart = (id) => setDragId(id);
+  const handleDragOver = (e, id) => { e.preventDefault(); setDragOver(id); };
+  const handleDrop = async (e, targetId) => {
+    e.preventDefault();
+    if (!dragId || dragId === targetId) { setDragId(null); setDragOver(null); return; }
+    const from = skladki.findIndex(s => s.id === dragId);
+    const to = skladki.findIndex(s => s.id === targetId);
+    const reordered = [...skladki];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    const withKolejnosc = reordered.map((s, i) => ({ ...s, kolejnosc: i }));
+    setSkladki(withKolejnosc);
+    await api.setSkladkiKolejnosc(withKolejnosc.map((s, i) => ({ id: s.id, kolejnosc: i })));
+    setDragId(null); setDragOver(null);
+  };
+
   const handleStatus = async (id, status) => {
     await api.setSkladkaStatus(id, status);
     load();
@@ -129,10 +148,21 @@ export default function Skladki() {
           <p className="font-body text-sage-600 dark:text-sage-400 mt-1">{skladki.length} składek</p>
         </div>
         {isKsiegowy && (
-          <button onClick={() => setModal(true)}
-            className="bg-ink dark:bg-sage-700 text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">
-            + Nowa składka
-          </button>
+          <div className="flex gap-2">
+            <button onClick={async () => {
+                setGenerujePdf(true);
+                try { await downloadRaportPdf(); }
+                catch (e) { alert('Błąd: ' + e.message); }
+                finally { setGenerujePdf(false); }
+              }} disabled={generujePdf}
+              className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 disabled:opacity-50">
+              {generujePdf ? '⏳ Generuję...' : '📄 Raport PDF'}
+            </button>
+            <button onClick={() => setModal(true)}
+              className="bg-ink dark:bg-sage-700 text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">
+              + Nowa składka
+            </button>
+          </div>
         )}
       </div>
 
@@ -154,7 +184,17 @@ export default function Skladki() {
             const archiwalna = s.status === 'zakonczona';
 
             return (
-              <div key={s.id} className={`rounded-2xl border p-5 ${archiwalna ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-sage-100 dark:border-gray-700'}`}>
+              <div key={s.id}
+                draggable={isKsiegowy}
+                onDragStart={() => handleDragStart(s.id)}
+                onDragOver={e => handleDragOver(e, s.id)}
+                onDrop={e => handleDrop(e, s.id)}
+                onDragEnd={() => { setDragId(null); setDragOver(null); }}
+                className={`rounded-2xl border p-5 transition-all select-none
+                  ${isKsiegowy ? 'cursor-grab active:cursor-grabbing' : ''}
+                  ${dragOver === s.id ? 'ring-2 ring-sage-400' : ''}
+                  ${dragId === s.id ? 'opacity-40' : ''}
+                  ${archiwalna ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700' : 'bg-white dark:bg-gray-800 border-sage-100 dark:border-gray-700'}`}>
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div className="flex-1">
                     <Link to={`/skladki/${s.id}`} className={`font-display font-600 hover:opacity-70 ${archiwalna ? 'text-gray-400' : 'text-ink dark:text-gray-100 hover:text-sage-600'}`}>

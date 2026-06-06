@@ -90,6 +90,7 @@ export const api = {
   deleteSkladka: (id) => request(`/skladki/${id}`, { method: 'DELETE' }),
 
   setSkladkaStatus: (id, status) => request(`/skladki/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  setSkladkiKolejnosc: (kolejnosc) => request('/skladki/kolejnosc', { method: 'PATCH', body: JSON.stringify({ kolejnosc }) }),
   removeUczenFromSkladka: (skladkaId, uczenId) => request(`/skladki/${skladkaId}/uczniowie/${uczenId}`, { method: 'DELETE' }),
   addUczenToSkladka: (skladkaId, uczenId) => request(`/skladki/${skladkaId}/uczniowie/${uczenId}`, { method: 'POST' }),
 
@@ -121,6 +122,19 @@ export const api = {
     window.open(url, '_blank');
     setTimeout(() => URL.revokeObjectURL(url), 10000);
   },
+};
+
+export const downloadRaportPdf = async () => {
+  const token = localStorage.getItem('token');
+  const res = await fetch('/api/raport/pdf', { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error('Błąd generowania raportu');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `raport-${new Date().toISOString().split('T')[0]}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 export const downloadUczniowieCsv = async () => {
