@@ -254,4 +254,21 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /uzytkownicy/export-csv
+router.get('/export-csv', requireKsiegowy, async (req, res) => {
+  try {
+    const result = await db.query('SELECT login, imie, nazwisko, rola, email FROM uzytkownicy ORDER BY login');
+    const bom = '\uFEFF';
+    const header = 'Login;Imie;Nazwisko;Rola;Email\n';
+    const rows = result.rows.map(r =>
+      [r.login, r.imie || '', r.nazwisko || '', r.rola, r.email || ''].join(';')
+    ).join('\n');
+    res.setHeader('Content-Type', 'text/csv;charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="uzytkownicy-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(bom + header + rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Blad eksportu' });
+  }
+});
+
 export default router;

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { api } from '../api.js';
+import { api, downloadUzytkownicyCsv } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Modal: dodaj użytkownika ──────────────────────────────────────────────────
@@ -362,8 +362,12 @@ export default function Uzytkownicy() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setImportModal(true)}
-            className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700">
+            className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
             ⬆ Import CSV
+          </button>
+          <button onClick={downloadUzytkownicyCsv}
+            className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
+            ⬇ Eksport CSV
           </button>
           <button onClick={() => setDodajModal(true)}
             className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">

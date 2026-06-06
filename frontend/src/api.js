@@ -123,6 +123,26 @@ export const api = {
   },
 };
 
+export const downloadUczniowieCsv = async () => {
+  const token = localStorage.getItem('token');
+  const res = await fetch('/api/ucznowie/export-csv', { headers: { Authorization: `Bearer ${token}` } });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `ucznowie-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const downloadUzytkownicyCsv = async () => {
+  const token = localStorage.getItem('token');
+  const res = await fetch('/api/uzytkownicy/export-csv', { headers: { Authorization: `Bearer ${token}` } });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `uzytkownicy-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+  URL.revokeObjectURL(url);
+};
+
 export const downloadSkladkaBackup = async (id, nazwa) => {
   const token = localStorage.getItem('token');
   const res = await fetch(`/api/backup/skladka/${id}`, {

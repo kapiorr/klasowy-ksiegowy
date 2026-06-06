@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { api } from '../api.js';
+import { api, downloadUczniowieCsv } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 function UczenModal({ onClose, onSave, initial }) {
@@ -185,8 +185,12 @@ export default function Ucznowie() {
             </button>
             {isKsiegowy && (<>
             <button onClick={() => setImportModal(true)}
-              className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 dark:hover:bg-gray-700 dark:hover:bg-gray-700">
+              className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
               ⬆ Import CSV
+            </button>
+            <button onClick={downloadUczniowieCsv}
+              className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
+              ⬇ Eksport CSV
             </button>
             <button onClick={() => setModal(true)}
               className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">

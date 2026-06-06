@@ -157,4 +157,21 @@ router.delete('/:id', requireKsiegowy, async (req, res) => {
   }
 });
 
+// GET /ucznowie/export-csv
+router.get('/export-csv', requireKsiegowy, async (req, res) => {
+  try {
+    const result = await db.query('SELECT imie, nazwisko, aktywny FROM ucznowie ORDER BY nazwisko, imie');
+    const bom = '\uFEFF';
+    const header = 'Imie;Nazwisko;Aktywny\n';
+    const rows = result.rows.map(r =>
+      [r.imie, r.nazwisko, r.aktywny ? 'tak' : 'nie'].join(';')
+    ).join('\n');
+    res.setHeader('Content-Type', 'text/csv;charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="ucznowie-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(bom + header + rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Blad eksportu' });
+  }
+});
+
 export default router;
