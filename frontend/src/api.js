@@ -148,6 +148,8 @@ export const uploadSkladkaBackup = async (file) => {
   return res.json();
 };
 
+export const getBackupConfig = () => request('/backup/config');
+
 export const getAutoBackups = () => {
   const token = localStorage.getItem('token');
   return fetch('/api/backup/auto', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json());

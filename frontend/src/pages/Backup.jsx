@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { downloadBackup, uploadBackup, uploadSkladkaBackup, getAutoBackups, downloadAutoBackup, runAutoBackup } from '../api.js';
+import { downloadBackup, uploadBackup, uploadSkladkaBackup, getAutoBackups, downloadAutoBackup, runAutoBackup, getBackupConfig } from '../api.js';
 
 function SkladkaRestore() {
   const [state, setState] = useState('idle');
@@ -68,9 +68,13 @@ function AutoBackupy() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [msg, setMsg] = useState('');
+  const [backupHour, setBackupHour] = useState(5);
 
   const load = () => getAutoBackups().then(setLista).catch(() => setLista([])).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    getBackupConfig().then(c => setBackupHour(c.backup_hour)).catch(e => console.error('backup config error:', e));
+  }, []);
 
   const handleRun = async () => {
     setRunning(true); setMsg('');
@@ -97,7 +101,7 @@ function AutoBackupy() {
             </button>
           </div>
           <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-4">
-            Codziennie o 5:00 — przechowywane 7 ostatnich kopii.
+            Codziennie o {backupHour}:00 — przechowywane 7 ostatnich kopii.
           </p>
           {msg && <div className="font-body text-sm text-sage-700 dark:text-sage-400 bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2 mb-3">{msg}</div>}
           {loading ? (
