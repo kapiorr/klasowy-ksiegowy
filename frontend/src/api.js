@@ -124,6 +124,19 @@ export const api = {
   },
 };
 
+export const downloadRaportSkladkiPdf = async (id, nazwa) => {
+  const token = localStorage.getItem('token');
+  const res = await fetch(`/api/raport/skladka/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error('Blad generowania raportu');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `raport-${(nazwa || id).replace(/[^a-z0-9]/gi, '_')}-${new Date().toISOString().split('T')[0]}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export const downloadRaportPdf = async () => {
   const token = localStorage.getItem('token');
   const res = await fetch('/api/raport/pdf', { headers: { Authorization: `Bearer ${token}` } });

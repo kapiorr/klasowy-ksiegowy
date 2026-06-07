@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, downloadRaportSkladkiPdf } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Podgląd załącznika z dymkiem ────────────────────────────────────────────
@@ -637,8 +637,8 @@ export default function SkladkaDetail() {
       </div>
 
       {/* Akcje */}
-      {moznaEdytowac && (
-        <div className="flex gap-3 mb-5">
+      <div className="flex gap-3 mb-5 flex-wrap">
+        {moznaEdytowac && (<>
           <button onClick={() => setWplataModal({ uczen: null })}
             className="flex-1 border-2 border-dashed border-sage-200 rounded-xl py-2.5 font-body text-sm text-sage-500 hover:border-sage-400 hover:text-sage-600 transition-colors">
             + Wpłata ogólna
@@ -647,8 +647,17 @@ export default function SkladkaDetail() {
             className="flex-1 border-2 border-dashed border-rose-200 rounded-xl py-2.5 font-body text-sm text-rose-400 hover:border-rose-400 hover:text-rose-500 transition-colors">
             − Wypłata / wydatek
           </button>
-        </div>
-      )}
+        </>)}
+        {isKsiegowy && (
+          <button onClick={async () => {
+            try { await downloadRaportSkladkiPdf(data.id, data.nazwa); }
+            catch (e) { alert('Błąd: ' + e.message); }
+          }}
+            className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
+            📄 Raport PDF
+          </button>
+        )}
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 bg-sage-100 dark:bg-gray-700 rounded-xl p-1 overflow-x-auto">
