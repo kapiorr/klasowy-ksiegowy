@@ -395,10 +395,17 @@ router.get('/skladka/:id', requireKsiegowy, async (req, res) => {
       .text(`${pct.toFixed(1)}% zebrano`, 40, y + 10, { width: W, align: 'center' });
     y += 22;
 
-    // Legenda
-    [['oplacone', 'Oplacono'], ['czesciowe', 'Czesciowe'], ['nieoplacone', 'Nie oplacono']].forEach(([st, label], i) => {
-      doc.rect(40 + i * 100, y, 8, 8).fill(statusKolor(st));
-      doc.fontSize(8).font('Regular').fillColor(GRAY).text(label, 52 + i * 100, y + 1);
+    // Legenda z licznikami
+    const countOplacone = ucznowie.filter(u => statusUcznia(u.zaplacono, u.kwota_na_osobe) === 'oplacone').length;
+    const countCzesciowe = ucznowie.filter(u => statusUcznia(u.zaplacono, u.kwota_na_osobe) === 'czesciowe').length;
+    const countNieoplacone = ucznowie.filter(u => statusUcznia(u.zaplacono, u.kwota_na_osobe) === 'nieoplacone').length;
+    [
+      ['oplacone',    `Oplacono (${countOplacone})`],
+      ['czesciowe',   `Czesciowe (${countCzesciowe})`],
+      ['nieoplacone', `Nie oplacono (${countNieoplacone})`],
+    ].forEach(([st, label], i) => {
+      doc.rect(40 + i * 130, y, 8, 8).fill(statusKolor(st));
+      doc.fontSize(8).font('Regular').fillColor(GRAY).text(label, 52 + i * 130, y + 1);
     });
     y += 18;
     doc.moveTo(40, y).lineTo(555, y).strokeColor('#ccc').lineWidth(0.5).stroke(); y += 10;
