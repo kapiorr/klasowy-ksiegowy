@@ -33,7 +33,7 @@ export async function sendResetEmail(email, token) {
   });
 }
 
-export async function sendWelcome(email, login, resetUrl) {
+export async function sendWelcome(email, login, resetUrl, expiryLabel = '15 minut') {
   const transport = getTransport();
   await transport.sendMail({
     from: process.env.EMAIL_FROM,
@@ -43,7 +43,7 @@ export async function sendWelcome(email, login, resetUrl) {
       <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
         <h2 style="color: #0f1117;">Witaj, ${login}!</h2>
         <p>Zostalo dla Ciebie utworzone konto w aplikacji <strong>Klasowy Ksiegowy</strong>.</p>
-        <p>Kliknij ponizszy przycisk aby ustawic swoje haslo. Link jest wazny przez <strong>15 minut</strong>.</p>
+        <p>Kliknij ponizszy przycisk aby ustawic swoje haslo. Link jest wazny przez <strong>${expiryLabel}</strong>.</p>
         <div style="text-align: center; margin: 32px 0;">
           <a href="${resetUrl}" style="background:#4a8c4a;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;">
             Ustaw haslo

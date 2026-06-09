@@ -19,7 +19,7 @@ export default function Dashboard() {
   const [appConfig, setAppConfig] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const isPodglad = user?.rola === 'podglad' && user?.uczen_id;
+  const isPodglad = ['podglad', 'podglad_pelny'].includes(user?.rola) && user?.uczen_id;
 
   useEffect(() => {
     Promise.all([api.getSkladki(), getAppConfig()]).then(([s, cfg]) => {
@@ -28,20 +28,27 @@ export default function Dashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
-  // Dla podglądu — pobierz wpłaty ucznia ze wszystkich aktywnych składek
+  // Dla podglądu z przypisanym uczniem — pobierz stan wpłat ucznia
   useEffect(() => {
     if (!isPodglad) return;
-    // Pobierz szczegóły każdej aktywnej składki żeby znać stan wpłat ucznia
     api.getSkladki().then(async (s) => {
       const aktywneS = s.filter(sk => sk.status === 'aktywna');
       const details = await Promise.all(aktywneS.map(sk => api.getSkladka(sk.id)));
-      setMojeWplaty(details.map(d => ({
-        id: d.id,
-        nazwa: d.nazwa,
-        kwota_na_osobe: parseFloat(d.kwota_na_osobe || 0),
-        wplacono: d.wplaty?.[0] ? parseFloat(d.wplaty[0].wplacono || 0) : 0,
-        przypisany: d.wplaty?.length > 0,
-      })).filter(d => d.przypisany));
+      const uczenId = user?.uczen_id;
+      setMojeWplaty(details.map(d => {
+        // podglad: wplaty zawiera tylko jego wpłaty
+        // podglad_pelny: wplaty zawiera wszystkich — filtrujemy po uczen_id
+        const jegoWplaty = d.wplaty?.filter(w => w.uczen_id === uczenId) || [];
+        const przypisany = d.wplaty?.some(w => w.uczen_id === uczenId) || false;
+        if (!przypisany) return null;
+        const wplacono = jegoWplaty.reduce((s, w) => s + parseFloat(w.wplacono || 0), 0);
+        return {
+          id: d.id,
+          nazwa: d.nazwa,
+          kwota_na_osobe: parseFloat(d.kwota_na_osobe || 0),
+          wplacono,
+        };
+      }).filter(Boolean));
     });
   }, [isPodglad]);
 

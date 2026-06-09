@@ -67,7 +67,7 @@ export const api = {
   updateUzytkownik: (id, data) => request(`/uzytkownicy/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   setMfaWymuszone: (id, wymuszone) => request(`/uzytkownicy/${id}/mfa-wymuszone`, { method: 'PATCH', body: JSON.stringify({ wymuszone }) }),
   resetMfa: (id) => request(`/uzytkownicy/${id}/reset-mfa`, { method: 'PATCH' }),
-  wyslijZaproszenie: (id) => request(`/uzytkownicy/${id}/wyslij-zaproszenie`, { method: 'POST' }),
+  wyslijZaproszenie: (id, minuty = 15) => request(`/uzytkownicy/${id}/wyslij-zaproszenie`, { method: 'POST', body: JSON.stringify({ link_expiry_minutes: minuty }) }),
   wymusPrzycZmianyHasla: (id) => request(`/uzytkownicy/${id}/wymus-zmiane-hasla`, { method: 'PATCH' }),
   cofnijWymuszenieHasla: (id) => request(`/uzytkownicy/${id}/cofnij-wymuszenie-hasla`, { method: 'PATCH' }),
   importUzytkownicyCsv: (csv) => request('/uzytkownicy/import-csv', { method: 'POST', body: JSON.stringify({ csv }) }),

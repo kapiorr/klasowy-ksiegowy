@@ -240,10 +240,11 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
       [randomHash, req.params.id]
     );
 
-    // Wygeneruj nowy token ważny 15 minut
+    // Wygeneruj nowy token — czas ważności z body (domyślnie 15 minut)
+    const minuty = parseInt(req.body.link_expiry_minutes || 15);
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const wygasaO = new Date(Date.now() + 15 * 60 * 1000);
+    const wygasaO = new Date(Date.now() + minuty * 60 * 1000);
 
     await db.query(
       'INSERT INTO tokeny_reset (uzytkownik_id, token_hash, wygasa_o) VALUES ($1,$2,$3)',
@@ -251,7 +252,10 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
     );
 
     const resetUrl = `${process.env.APP_URL}/reset-hasla?token=${token}`;
-    await sendWelcome(user.email, user.login, resetUrl);
+    const expiryLabel = minuty >= 10080 ? '7 dni' : minuty >= 7200 ? '5 dni' : minuty >= 2880 ? '2 dni'
+      : minuty >= 1440 ? '1 dzien' : minuty >= 360 ? '6 godzin' : minuty >= 120 ? '2 godziny'
+      : minuty >= 60 ? '1 godzine' : `${minuty} minut`;
+    await sendWelcome(user.email, user.login, resetUrl, expiryLabel);
 
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'edit_uzytkownik', zasob: req.originalUrl,
       szczegoly: `${user.login} | wysłano zaproszenie na ${user.email}` });

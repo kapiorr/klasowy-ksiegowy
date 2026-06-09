@@ -3,9 +3,20 @@ import { api, downloadUzytkownicyCsv } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Modal: dodaj użytkownika ──────────────────────────────────────────────────
+const EXPIRY_OPTIONS = [
+  { value: 15,   label: '15 minut' },
+  { value: 60,   label: '1 godzina' },
+  { value: 120,  label: '2 godziny' },
+  { value: 360,  label: '6 godzin' },
+  { value: 1440, label: '1 dzień' },
+  { value: 2880, label: '2 dni' },
+  { value: 7200, label: '5 dni' },
+  { value: 10080,label: '7 dni' },
+];
 function DodajModal({ ucznowie, onClose, onSave }) {
   const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', imie: '', nazwisko: '' });
   const [wyslijMail, setWyslijMail] = useState(false);
+  const [linkExpiry, setLinkExpiry] = useState(15);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
@@ -13,7 +24,7 @@ function DodajModal({ ucznowie, onClose, onSave }) {
     e.preventDefault(); setSaving(true); setErr('');
     if (wyslijMail && !form.email) { setErr('Podaj email aby wysłać zaproszenie'); setSaving(false); return; }
     if (!wyslijMail && form.haslo.length < 8) { setErr('Hasło min. 8 znaków'); setSaving(false); return; }
-    try { await onSave(form, wyslijMail); onClose(); }
+    try { await onSave(form, wyslijMail, linkExpiry); onClose(); }
     catch (e) { setErr(e.message); }
     finally { setSaving(false); }
   };
@@ -67,9 +78,9 @@ function DodajModal({ ucznowie, onClose, onSave }) {
               <option value="podglad">Podgląd (własny uczeń)</option>
             </select>
           </div>
-          {form.rola === 'podglad' && (
+          {(form.rola === 'podglad' || form.rola === 'podglad_pelny') && (
             <div>
-              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń</label>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń <span className="text-sage-400 text-xs">(opcjonalne)</span></label>
               <select value={form.uczen_id} onChange={e => setForm(f => ({ ...f, uczen_id: e.target.value }))}
                 className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
                 <option value="">— brak powiązania —</option>
@@ -81,9 +92,18 @@ function DodajModal({ ucznowie, onClose, onSave }) {
             <input type="checkbox" checked={wyslijMail} onChange={e => setWyslijMail(e.target.checked)}
               className="mt-0.5 rounded border-sage-300" />
             <span className="font-body text-sm text-ink dark:text-gray-100">
-              Wyślij mail powitalny z linkiem do ustawienia hasła <span className="text-sage-400">(ważny 15 min)</span>
+              Wyślij mail powitalny z linkiem do ustawienia hasła
             </span>
           </label>
+          {wyslijMail && (
+            <div className="flex items-center gap-2 pl-6">
+              <label className="font-body text-sm text-sage-600">Link ważny przez</label>
+              <select value={linkExpiry} onChange={e => setLinkExpiry(parseInt(e.target.value))}
+                className="border border-sage-200 rounded-lg px-2 py-1.5 font-body text-sm text-ink focus:outline-none focus:border-sage-600">
+                {EXPIRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
           {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
@@ -154,9 +174,9 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
               className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
               placeholder="opcjonalnie" />
           </div>
-          {form.rola === 'podglad' && (
+          {(form.rola === 'podglad' || form.rola === 'podglad_pelny') && (
             <div>
-              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń</label>
+              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń <span className="text-sage-400 text-xs">(opcjonalne)</span></label>
               <select value={form.uczen_id} onChange={e => setForm(f => ({ ...f, uczen_id: e.target.value }))}
                 className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
                 <option value="">— brak powiązania —</option>
@@ -174,15 +194,26 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
             </button>
           </div>
           {user.email && (
-            <button type="button"
-              onClick={async () => {
-                if (!confirm(`Wysłać link do ustawienia hasła na ${user.email}? Link będzie ważny 15 minut.`)) return;
-                try { await api.wyslijZaproszenie(user.id); onClose(); alert('Mail wysłany!'); }
-                catch (e) { alert('Błąd: ' + e.message); }
-              }}
-              className="w-full border border-sage-200 text-sage-600 font-body text-sm py-2.5 rounded-xl hover:bg-sage-50">
-              ✉ Wyślij link do ustawienia hasła
-            </button>
+            <div className="space-y-2 mt-1">
+              <div className="flex items-center gap-2">
+                <span className="font-body text-sm text-sage-600">Link ważny przez</span>
+                <select id="editLinkExpiry" defaultValue={15}
+                  className="border border-sage-200 rounded-lg px-2 py-1.5 font-body text-sm text-ink focus:outline-none focus:border-sage-600">
+                  {EXPIRY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <button type="button"
+                onClick={async () => {
+                  const minuty = parseInt(document.getElementById('editLinkExpiry')?.value || 15);
+                  const label = EXPIRY_OPTIONS.find(o => o.value === minuty)?.label || `${minuty} minut`;
+                  if (!confirm(`Wysłać link do ustawienia hasła na ${user.email}? Link będzie ważny ${label}.`)) return;
+                  try { await api.wyslijZaproszenie(user.id, minuty); onClose(); alert('Mail wysłany!'); }
+                  catch (e) { alert('Błąd: ' + e.message); }
+                }}
+                className="w-full border border-sage-200 text-sage-600 font-body text-sm py-2.5 rounded-xl hover:bg-sage-50">
+                ✉ Wyślij link do ustawienia hasła
+              </button>
+            </div>
           )}
         </form>
       </div>
@@ -299,7 +330,7 @@ export default function Uzytkownicy() {
 
   useEffect(() => { load(); }, []);
 
-  const handleDodaj = async (form, wyslijMail) => {
+  const handleDodaj = async (form, wyslijMail, linkExpiry = 15) => {
     // Jeśli wysyłamy mail — ustaw tymczasowe hasło jeśli nie podano
     const dataDoWyslania = { ...form };
     if (wyslijMail && !form.haslo) {
@@ -308,7 +339,7 @@ export default function Uzytkownicy() {
     const nowy = await api.addUzytkownik(dataDoWyslania);
     if (wyslijMail && nowy?.id) {
       try {
-        await api.wyslijZaproszenie(nowy.id);
+        await api.wyslijZaproszenie(nowy.id, linkExpiry);
         showMsg('Użytkownik dodany — mail powitalny wysłany');
       } catch {
         showMsg('Użytkownik dodany, ale nie udało się wysłać maila', 'err');
