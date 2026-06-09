@@ -60,55 +60,7 @@ function ZalacznikPreview({ wyplataId, nazwa, typ }) {
           </div>
         </div>
       )}
-      {/* Modal podglądu odbiorców mailingu */}
-      {mailingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl">
-            <div className="p-5 border-b border-sage-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-700 text-ink dark:text-gray-100">Wyślij powiadomienie</h3>
-              <button onClick={() => setMailingModal(null)} className="text-sage-400 hover:text-ink text-xl">✕</button>
-            </div>
-            <div className="p-5">
-              {mailingModal.odbiorcy.length === 0 ? (
-                <p className="font-body text-sage-500 text-center py-4">Brak odbiorców — wszyscy zapłacili lub nikt nie ma emaila.</p>
-              ) : (<>
-                <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-3">
-                  Mail zostanie wysłany do <strong>{mailingModal.odbiorcy.length}</strong> {mailingModal.odbiorcy.length === 1 ? 'osoby' : 'osób'}:
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
-                  {mailingModal.odbiorcy.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2.5">
-                      <div>
-                        <div className="font-body text-sm text-ink dark:text-gray-100">{o.uczen}</div>
-                        <div className="font-body text-xs text-sage-400">{o.email}</div>
-                      </div>
-                      <span className="font-mono text-sm font-600 text-amber-600">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
-                    </div>
-                  ))}
-                </div>
-              </>)}
-            </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setMailingModal(null)}
-                className="flex-1 border border-sage-200 dark:border-gray-600 rounded-xl py-2.5 font-body text-ink dark:text-gray-100 hover:bg-sage-50 dark:hover:bg-gray-700">
-                Anuluj
-              </button>
-              {mailingModal.odbiorcy.length > 0 && (
-                <button onClick={async () => {
-                  setMailingModal(null);
-                  try {
-                    const r = await mailingSkladka(data.id);
-                    await alert('Wysłano: ' + r.wyslano + ' maili' + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
-                  } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
-                }}
-                  className="flex-1 bg-ink dark:bg-gray-900 text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700">
-                  Wyślij maile
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -211,55 +163,7 @@ function DodajUczniaModal({ skladkaId, obecniIds, onClose, onSave }) {
           </button>
         </div>
       </div>
-      {/* Modal podglądu odbiorców mailingu */}
-      {mailingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl">
-            <div className="p-5 border-b border-sage-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-700 text-ink dark:text-gray-100">Wyślij powiadomienie</h3>
-              <button onClick={() => setMailingModal(null)} className="text-sage-400 hover:text-ink text-xl">✕</button>
-            </div>
-            <div className="p-5">
-              {mailingModal.odbiorcy.length === 0 ? (
-                <p className="font-body text-sage-500 text-center py-4">Brak odbiorców — wszyscy zapłacili lub nikt nie ma emaila.</p>
-              ) : (<>
-                <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-3">
-                  Mail zostanie wysłany do <strong>{mailingModal.odbiorcy.length}</strong> {mailingModal.odbiorcy.length === 1 ? 'osoby' : 'osób'}:
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
-                  {mailingModal.odbiorcy.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2.5">
-                      <div>
-                        <div className="font-body text-sm text-ink dark:text-gray-100">{o.uczen}</div>
-                        <div className="font-body text-xs text-sage-400">{o.email}</div>
-                      </div>
-                      <span className="font-mono text-sm font-600 text-amber-600">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
-                    </div>
-                  ))}
-                </div>
-              </>)}
-            </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setMailingModal(null)}
-                className="flex-1 border border-sage-200 dark:border-gray-600 rounded-xl py-2.5 font-body text-ink dark:text-gray-100 hover:bg-sage-50 dark:hover:bg-gray-700">
-                Anuluj
-              </button>
-              {mailingModal.odbiorcy.length > 0 && (
-                <button onClick={async () => {
-                  setMailingModal(null);
-                  try {
-                    const r = await mailingSkladka(data.id);
-                    await alert('Wysłano: ' + r.wyslano + ' maili' + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
-                  } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
-                }}
-                  className="flex-1 bg-ink dark:bg-gray-900 text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700">
-                  Wyślij maile
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -330,55 +234,7 @@ function WplataModal({ uczen, wplataEdit, skladkaId, onClose, onSave }) {
           </div>
         </form>
       </div>
-      {/* Modal podglądu odbiorców mailingu */}
-      {mailingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl">
-            <div className="p-5 border-b border-sage-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-700 text-ink dark:text-gray-100">Wyślij powiadomienie</h3>
-              <button onClick={() => setMailingModal(null)} className="text-sage-400 hover:text-ink text-xl">✕</button>
-            </div>
-            <div className="p-5">
-              {mailingModal.odbiorcy.length === 0 ? (
-                <p className="font-body text-sage-500 text-center py-4">Brak odbiorców — wszyscy zapłacili lub nikt nie ma emaila.</p>
-              ) : (<>
-                <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-3">
-                  Mail zostanie wysłany do <strong>{mailingModal.odbiorcy.length}</strong> {mailingModal.odbiorcy.length === 1 ? 'osoby' : 'osób'}:
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
-                  {mailingModal.odbiorcy.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2.5">
-                      <div>
-                        <div className="font-body text-sm text-ink dark:text-gray-100">{o.uczen}</div>
-                        <div className="font-body text-xs text-sage-400">{o.email}</div>
-                      </div>
-                      <span className="font-mono text-sm font-600 text-amber-600">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
-                    </div>
-                  ))}
-                </div>
-              </>)}
-            </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setMailingModal(null)}
-                className="flex-1 border border-sage-200 dark:border-gray-600 rounded-xl py-2.5 font-body text-ink dark:text-gray-100 hover:bg-sage-50 dark:hover:bg-gray-700">
-                Anuluj
-              </button>
-              {mailingModal.odbiorcy.length > 0 && (
-                <button onClick={async () => {
-                  setMailingModal(null);
-                  try {
-                    const r = await mailingSkladka(data.id);
-                    await alert('Wysłano: ' + r.wyslano + ' maili' + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
-                  } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
-                }}
-                  className="flex-1 bg-ink dark:bg-gray-900 text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700">
-                  Wyślij maile
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -431,55 +287,7 @@ function HistoriaDrawer({ uczen, skladkaId, onClose, onEdytuj, onUsun, onDodaj }
           </button>
         </div>
       </div>
-      {/* Modal podglądu odbiorców mailingu */}
-      {mailingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl">
-            <div className="p-5 border-b border-sage-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-700 text-ink dark:text-gray-100">Wyślij powiadomienie</h3>
-              <button onClick={() => setMailingModal(null)} className="text-sage-400 hover:text-ink text-xl">✕</button>
-            </div>
-            <div className="p-5">
-              {mailingModal.odbiorcy.length === 0 ? (
-                <p className="font-body text-sage-500 text-center py-4">Brak odbiorców — wszyscy zapłacili lub nikt nie ma emaila.</p>
-              ) : (<>
-                <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-3">
-                  Mail zostanie wysłany do <strong>{mailingModal.odbiorcy.length}</strong> {mailingModal.odbiorcy.length === 1 ? 'osoby' : 'osób'}:
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
-                  {mailingModal.odbiorcy.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2.5">
-                      <div>
-                        <div className="font-body text-sm text-ink dark:text-gray-100">{o.uczen}</div>
-                        <div className="font-body text-xs text-sage-400">{o.email}</div>
-                      </div>
-                      <span className="font-mono text-sm font-600 text-amber-600">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
-                    </div>
-                  ))}
-                </div>
-              </>)}
-            </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setMailingModal(null)}
-                className="flex-1 border border-sage-200 dark:border-gray-600 rounded-xl py-2.5 font-body text-ink dark:text-gray-100 hover:bg-sage-50 dark:hover:bg-gray-700">
-                Anuluj
-              </button>
-              {mailingModal.odbiorcy.length > 0 && (
-                <button onClick={async () => {
-                  setMailingModal(null);
-                  try {
-                    const r = await mailingSkladka(data.id);
-                    await alert('Wysłano: ' + r.wyslano + ' maili' + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
-                  } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
-                }}
-                  className="flex-1 bg-ink dark:bg-gray-900 text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700">
-                  Wyślij maile
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -633,55 +441,7 @@ function WyplataModal({ skladkaId, wyplataEdit, onClose, onSave }) {
           </div>
         </form>
       </div>
-      {/* Modal podglądu odbiorców mailingu */}
-      {mailingModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl">
-            <div className="p-5 border-b border-sage-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-display font-700 text-ink dark:text-gray-100">Wyślij powiadomienie</h3>
-              <button onClick={() => setMailingModal(null)} className="text-sage-400 hover:text-ink text-xl">✕</button>
-            </div>
-            <div className="p-5">
-              {mailingModal.odbiorcy.length === 0 ? (
-                <p className="font-body text-sage-500 text-center py-4">Brak odbiorców — wszyscy zapłacili lub nikt nie ma emaila.</p>
-              ) : (<>
-                <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-3">
-                  Mail zostanie wysłany do <strong>{mailingModal.odbiorcy.length}</strong> {mailingModal.odbiorcy.length === 1 ? 'osoby' : 'osób'}:
-                </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
-                  {mailingModal.odbiorcy.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2.5">
-                      <div>
-                        <div className="font-body text-sm text-ink dark:text-gray-100">{o.uczen}</div>
-                        <div className="font-body text-xs text-sage-400">{o.email}</div>
-                      </div>
-                      <span className="font-mono text-sm font-600 text-amber-600">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
-                    </div>
-                  ))}
-                </div>
-              </>)}
-            </div>
-            <div className="px-5 pb-5 flex gap-3">
-              <button onClick={() => setMailingModal(null)}
-                className="flex-1 border border-sage-200 dark:border-gray-600 rounded-xl py-2.5 font-body text-ink dark:text-gray-100 hover:bg-sage-50 dark:hover:bg-gray-700">
-                Anuluj
-              </button>
-              {mailingModal.odbiorcy.length > 0 && (
-                <button onClick={async () => {
-                  setMailingModal(null);
-                  try {
-                    const r = await mailingSkladka(data.id);
-                    await alert('Wysłano: ' + r.wyslano + ' maili' + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
-                  } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
-                }}
-                  className="flex-1 bg-ink dark:bg-gray-900 text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700">
-                  Wyślij maile
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -1061,8 +821,8 @@ export default function SkladkaDetail() {
           {wyplaty.map(w => (
             <div key={w.id} className="bg-white dark:bg-gray-800 border border-rose-100 dark:border-red-900/40 rounded-xl px-4 py-3 flex items-center justify-between">
               <div>
-                <div className="font-body text-sm font-500 text-ink dark:text-gray-100">{w.opis}</div>
-                <div className="font-body text-xs text-sage-400 dark:text-gray-500">{new Date(w.data).toLocaleDateString('pl-PL')}</div>
+                <div className="font-body text-sm font-500 text-ink dark:text-gray-100">{w.opis || '—'}</div>
+                <div className="font-body text-xs text-sage-400 dark:text-gray-500">{w.data ? new Date(w.data).toLocaleDateString('pl-PL') : '—'}</div>
                 {w.zalacznik_nazwa && (
                   <ZalacznikPreview
                     wyplataId={w.id}
@@ -1072,7 +832,7 @@ export default function SkladkaDetail() {
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-500 text-rose-500">−{parseFloat(w.kwota).toFixed(2)} zł</span>
+                <span className="font-mono text-sm font-500 text-rose-500">−{parseFloat(w.kwota || 0).toFixed(2)} zł</span>
                 {moznaEdytowac && (
                   <div className="flex gap-2">
                     <button onClick={() => setWyplataEdit(w)}
@@ -1086,6 +846,7 @@ export default function SkladkaDetail() {
           ))}
         </div>
       )}
+
       {/* Modal podglądu odbiorców mailingu */}
       {mailingModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
