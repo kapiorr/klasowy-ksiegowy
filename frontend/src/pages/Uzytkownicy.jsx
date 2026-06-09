@@ -24,6 +24,7 @@ function DodajModal({ ucznowie, onClose, onSave }) {
     e.preventDefault(); setSaving(true); setErr('');
     if (wyslijMail && !form.email) { setErr('Podaj email aby wysłać zaproszenie'); setSaving(false); return; }
     if (!wyslijMail && form.haslo.length < 8) { setErr('Hasło min. 8 znaków'); setSaving(false); return; }
+    if (form.rola === 'podglad' && !form.uczen_id) { setErr('Rola "Podgląd" wymaga przypisania ucznia'); setSaving(false); return; }
     try { await onSave(form, wyslijMail, linkExpiry); onClose(); }
     catch (e) { setErr(e.message); }
     finally { setSaving(false); }
@@ -80,7 +81,9 @@ function DodajModal({ ucznowie, onClose, onSave }) {
           </div>
           {(form.rola === 'podglad' || form.rola === 'podglad_pelny') && (
             <div>
-              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń <span className="text-sage-400 text-xs">(opcjonalne)</span></label>
+              <label className="block font-body text-sm font-500 text-ink mb-1">
+                Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
+              </label>
               <select value={form.uczen_id} onChange={e => setForm(f => ({ ...f, uczen_id: e.target.value }))}
                 className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
                 <option value="">— brak powiązania —</option>
@@ -176,7 +179,9 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
           </div>
           {(form.rola === 'podglad' || form.rola === 'podglad_pelny') && (
             <div>
-              <label className="block font-body text-sm font-500 text-ink mb-1">Powiązany uczeń <span className="text-sage-400 text-xs">(opcjonalne)</span></label>
+              <label className="block font-body text-sm font-500 text-ink mb-1">
+                Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
+              </label>
               <select value={form.uczen_id} onChange={e => setForm(f => ({ ...f, uczen_id: e.target.value }))}
                 className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
                 <option value="">— brak powiązania —</option>

@@ -64,6 +64,12 @@ router.patch('/:id', requireAdmin, async (req, res) => {
     const stary = await db.query('SELECT login, rola, email, imie, nazwisko FROM uzytkownicy WHERE id=$1', [req.params.id]);
     const staryRow = stary.rows[0];
 
+    // Rola podglad wymaga przypisanego ucznia
+    const nowaRola = rola || staryRow?.rola;
+    const nowyUczenId = uczen_id !== undefined ? uczen_id : staryRow?.uczen_id;
+    if (nowaRola === 'podglad' && !nowyUczenId)
+      return res.status(400).json({ error: 'Rola "Podgląd" wymaga przypisania ucznia' });
+
     // Nie pozwól jedynemu adminowi zmienić sobie roli
     if (staryRow?.rola === 'admin' && rola && rola !== 'admin' && req.params.id === req.user.id) {
       const adminCount = await db.query("SELECT COUNT(*) FROM uzytkownicy WHERE rola='admin'");
