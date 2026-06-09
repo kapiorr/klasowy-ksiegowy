@@ -27,10 +27,13 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 | **Admin** | Pełny dostęp — składki, wpłaty, uczniowie, użytkownicy (CRUD), backup, logi, statystyki |
 | **Księgowy** | Składki/wpłaty/wypłaty (pełny), uczniowie (pełny), użytkownicy (tylko odczyt) |
 | **Podgląd pełny** | Odczyt wszystkiego, brak edycji |
-| **Podgląd** | Tylko własne wpłaty (wymaga powiązania z uczniem) |
+| **Podgląd** | Tylko własne wpłaty — **wymaga** przypisania ucznia |
 
 - Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko`)
-- Wysyłka maila powitalnego z linkiem do ustawienia hasła (ważny 15 min) — przy zakładaniu konta lub z poziomu edycji
+- Wysyłka maila powitalnego z linkiem do ustawienia hasła — przy zakładaniu konta lub z poziomu edycji
+  - Czas ważności linku do wyboru: 15 min / 1h / 2h / 6h / 1 dzień / 2 dni / 5 dni / 7 dni
+- Rola `podglad` wymaga obowiązkowo przypisania ucznia
+- Rola `podglad_pelny` może opcjonalnie mieć przypisanego ucznia (wtedy widzi kafelek z zaległościami na dashboardzie)
 - Wymuszanie MFA per użytkownik
 - Wymuszanie zmiany hasła przy następnym logowaniu
 - Reset MFA przez admina
@@ -61,6 +64,12 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Rozmiar tabel z liczbą wierszy
 - Top 20 zapytań SQL wg wywołań (pg_stat_statements)
 - Reset statystyk zapytań
+
+### Dashboard
+- Kafelek "Masz jeszcze do zapłacenia" dla ról `podglad` i `podglad_pelny` z przypisanym uczniem
+  - Suma zaległości ze wszystkich aktywnych składek
+  - Szczegółowa lista składek z kwotami
+  - Dane do wpłat (nr konta, BLIK) z `.env`
 
 ### Inne
 - **Tryb ciemny** — wykrywa preferencje systemu, zapamiętuje wybór
