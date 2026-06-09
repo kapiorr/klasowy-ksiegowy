@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api } from '../api.js';
 
 export default function Login() {
+  const [appInfo, setAppInfo] = useState({});
+  useEffect(() => {
+    fetch('/api/info').then(r => r.json()).then(setAppInfo).catch(() => {});
+  }, []);
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ login: '', haslo: '', mfa_kod: '', nowe_haslo: '', nowe_haslo2: '' });
@@ -73,6 +77,13 @@ export default function Login() {
             <span className="text-2xl">📒</span>
           </div>
           <h1 className="font-display text-3xl font-800 text-ink dark:text-gray-100">Klasowy Księgowy</h1>
+          {(appInfo.class_name || appInfo.school_name) && (
+            <p className="font-body text-sm font-500 text-ink dark:text-gray-200 mt-1">
+              {appInfo.class_name && <span>Klasa {appInfo.class_name}</span>}
+              {appInfo.class_name && appInfo.school_name && <span className="mx-2 text-sage-300">·</span>}
+              {appInfo.school_name && <span>{appInfo.school_name}</span>}
+            </p>
+          )}
           <p className="font-body text-sage-600 mt-1">
             {step === 'mfa' && 'Podaj kod z aplikacji uwierzytelniającej'}
             {step === 'zmiana_hasla' && 'Ustaw nowe hasło aby kontynuować'}

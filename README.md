@@ -163,6 +163,15 @@ BACKUP_HOUR=5
 # Pozostaw puste jeśli nie chcesz wyświetlać
 PAYMENT_ACCOUNT=12 3456 7890 1234 5678 9012 3456
 PAYMENT_PHONE=600 123 456
+
+# Informacje o klasie — wyświetlane na stronie logowania
+# Pozostaw puste jeśli nie chcesz wyświetlać
+CLASS_NAME=VI
+SCHOOL_NAME=SP nr 1
+
+# Informacje o klasie wyświetlane na stronie logowania (opcjonalne)
+CLASS_NAME=VI
+SCHOOL_NAME=SP nr 1
 ```
 
 Ustaw odpowiednie uprawnienia:

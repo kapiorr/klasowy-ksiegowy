@@ -44,6 +44,14 @@ app.use(async (req, res, next) => {
 app.use(activityMiddleware);
 
 
+// GET /api/info — publiczne info o klasie (strona logowania)
+app.get('/api/info', (req, res) => {
+  res.json({
+    class_name: process.env.CLASS_NAME || null,
+    school_name: process.env.SCHOOL_NAME || null,
+  });
+});
+
 // GET /api/config — ustawienia aplikacji (wymaga autoryzacji)
 app.get('/api/config', requireAuth, (req, res) => {
   res.json({
