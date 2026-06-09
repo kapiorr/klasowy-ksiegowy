@@ -43,6 +43,9 @@ export default function Layout() {
           <NavLink to="/logi" className={linkCls} onClick={close}>
             <span className="text-base">◳</span>Logi
           </NavLink>
+          <NavLink to="/mailing" className={linkCls} onClick={close}>
+            <span className="text-base">✉</span>Mailing
+          </NavLink>
           <NavLink to="/statystyki" className={linkCls} onClick={close}>
             <span className="text-base">◉</span>Statystyki
           </NavLink>

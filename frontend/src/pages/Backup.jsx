@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useDialog } from '../components/Dialog.jsx';
 import { downloadBackup, uploadBackup, uploadSkladkaBackup, getAutoBackups, downloadAutoBackup, runAutoBackup, getBackupConfig } from '../api.js';
 
 function SkladkaRestore() {
@@ -64,6 +65,7 @@ function SkladkaRestore() {
 }
 
 function AutoBackupy() {
+  const { confirm, alert } = useDialog();
   const [lista, setLista] = useState([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -122,7 +124,7 @@ function AutoBackupy() {
                       ⬇ Pobierz
                     </button>
                     <button onClick={async () => {
-                        if (!confirm(`Przywrócić backup "${b.nazwa}"? Istniejące dane zostaną nadpisane.`)) return;
+                        if (!await confirm(`Przywrócić backup "${b.nazwa}"? Istniejące dane zostaną nadpisane.`)) return;
                         try {
                           const token = localStorage.getItem('token');
                           const fileRes = await fetch(`/api/backup/auto/${b.nazwa}`, { headers: { Authorization: `Bearer ${token}` } });

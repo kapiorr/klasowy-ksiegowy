@@ -15,6 +15,7 @@ import backupRouter from './routes/backup.js';
 import logiRouter from './routes/logi.js';
 import statystykiRouter from './routes/statystyki.js';
 import raportRouter from './routes/raport.js';
+import mailingRouter from './routes/mailing.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -69,6 +70,7 @@ app.use('/api/backup', backupRouter);
 app.use('/api/logi', logiRouter);
 app.use('/api/statystyki', statystykiRouter);
 app.use('/api/raport', raportRouter);
+app.use('/api/mailing', mailingRouter);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 

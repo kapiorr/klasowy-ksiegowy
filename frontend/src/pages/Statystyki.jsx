@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { request } from '../api.js';
+import { useDialog } from '../components/Dialog.jsx';
 
 function Kafelek({ label, value, sub, color = 'text-ink dark:text-gray-100' }) {
   return (
@@ -36,6 +37,7 @@ function QueryModal({ query, onClose }) {
 export default function Statystyki() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { confirm, alert } = useDialog();
   const [resetting, setResetting] = useState(false);
   const [err, setErr] = useState('');
   const [selectedQuery, setSelectedQuery] = useState(null);
@@ -51,13 +53,13 @@ export default function Statystyki() {
   useEffect(() => { load(); }, [load]);
 
   const handleReset = async () => {
-    if (!confirm('Zresetować statystyki zapytań? Wyczyści historię pg_stat_statements.')) return;
+    if (!await confirm('Zresetować statystyki zapytań? Wyczyści historię pg_stat_statements.')) return;
     setResetting(true);
     try {
       await request('/statystyki/reset', { method: 'POST' });
       load();
     } catch (e) {
-      alert('Błąd: ' + e.message);
+      await alert('Błąd: ' + e.message, 'error');
     } finally {
       setResetting(false);
     }

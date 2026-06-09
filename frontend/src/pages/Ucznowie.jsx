@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { api, downloadUczniowieCsv } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useDialog } from '../components/Dialog.jsx';
 
 function UczenModal({ onClose, onSave, initial }) {
   const [form, setForm] = useState(initial || { imie: '', nazwisko: '' });
@@ -136,6 +137,7 @@ export default function Ucznowie() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [importModal, setImportModal] = useState(false);
+  const { confirm } = useDialog();
   const isKsiegowy = ['admin', 'ksiegowy'].includes(user?.rola);
 
   const [pokazNieaktywnych, setPokazNieaktywnych] = useState(false);
@@ -153,13 +155,13 @@ export default function Ucznowie() {
     const msg = uczen.aktywny
       ? `Oznaczyć "${uczen.nazwisko} ${uczen.imie}" jako nieaktywny? Nie zostanie dodany do nowych składek.`
       : `Przywrócić "${uczen.nazwisko} ${uczen.imie}" jako aktywny?`;
-    if (!confirm(msg)) return;
+    if (!await confirm(msg)) return;
     await api.toggleAktywnyUczen(uczen.id, !uczen.aktywny);
     load();
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Usunąć ucznia? Usunie też jego wpłaty.')) return;
+    if (!await confirm('Usunąć ucznia? Usunie też jego wpłaty.')) return;
     await api.deleteUczen(id);
     load();
   };

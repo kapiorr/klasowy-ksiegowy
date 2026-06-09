@@ -124,6 +124,11 @@ export const api = {
   },
 };
 
+export const mailingSkladka = (id) => request(`/mailing/skladka/${id}`, { method: 'POST' });
+export const mailingPodglad = (id) => request(`/mailing/skladka/${id}/podglad`);
+export const getMailingZaleglosci = () => request('/mailing/zaleglosci/podglad');
+export const sendMailingZaleglosci = (ids) => request('/mailing/zaleglosci', { method: 'POST', body: JSON.stringify({ uzytkownik_ids: ids }) });
+
 export const downloadRaportSkladkiPdf = async (id, nazwa) => {
   const token = localStorage.getItem('token');
   const res = await fetch(`/api/raport/skladka/${id}`, { headers: { Authorization: `Bearer ${token}` } });

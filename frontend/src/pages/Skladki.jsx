@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, downloadSkladkaBackup, downloadRaportPdf } from '../api.js';
+import { useDialog } from '../components/Dialog.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const STATUS_LABELS = { aktywna: 'Aktywna', zakonczona: 'Archiwalna', wstrzymana: 'Wstrzymana' };
@@ -90,6 +91,7 @@ export default function Skladki() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const { confirm, alert } = useDialog();
   const isKsiegowy = ['admin', 'ksiegowy'].includes(user?.rola);
 
   const load = () => api.getSkladki().then(setSkladki).finally(() => setLoading(false));
@@ -106,7 +108,7 @@ export default function Skladki() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Usunąć składkę i wszystkie wpłaty?')) return;
+    if (!await confirm('Usunąć składkę i wszystkie wpłaty?')) return;
     await api.deleteSkladka(id);
     load();
   };
@@ -152,7 +154,7 @@ export default function Skladki() {
             <button onClick={async () => {
                 setGenerujePdf(true);
                 try { await downloadRaportPdf(); }
-                catch (e) { alert('Błąd: ' + e.message); }
+                catch (e) { await alert('Błąd: ' + e.message, 'error'); }
                 finally { setGenerujePdf(false); }
               }} disabled={generujePdf}
               className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 disabled:opacity-50">

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { api, downloadUzytkownicyCsv } from '../api.js';
+import { useDialog } from '../components/Dialog.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Modal: dodaj użytkownika ──────────────────────────────────────────────────
@@ -211,9 +212,9 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
                 onClick={async () => {
                   const minuty = parseInt(document.getElementById('editLinkExpiry')?.value || 15);
                   const label = EXPIRY_OPTIONS.find(o => o.value === minuty)?.label || `${minuty} minut`;
-                  if (!confirm(`Wysłać link do ustawienia hasła na ${user.email}? Link będzie ważny ${label}.`)) return;
-                  try { await api.wyslijZaproszenie(user.id, minuty); onClose(); alert('Mail wysłany!'); }
-                  catch (e) { alert('Błąd: ' + e.message); }
+                  if (!await confirm(`Wysłać link do ustawienia hasła na ${user.email}? Link będzie ważny ${label}.`)) return;
+                  try { await api.wyslijZaproszenie(user.id, minuty); onClose(); await alert('Mail wysłany!', 'success'); }
+                  catch (e) { await alert('Błąd: ' + e.message, 'error'); }
                 }}
                 className="w-full border border-sage-200 text-sage-600 font-body text-sm py-2.5 rounded-xl hover:bg-sage-50">
                 ✉ Wyślij link do ustawienia hasła
@@ -326,6 +327,7 @@ export default function Uzytkownicy() {
   };
 
   const { user } = useAuth();
+  const { confirm, alert } = useDialog();
   const isAdmin = user?.rola === 'admin';
 
   const load = async () => {
@@ -356,12 +358,12 @@ export default function Uzytkownicy() {
   };
   const handleEdytuj = async (id, form) => { await api.updateUzytkownik(id, form); showMsg('Zapisano'); load(); };
   const handleDelete = async (id) => {
-    if (!confirm('Usunąć użytkownika?')) return;
+    if (!await confirm('Usunąć użytkownika?')) return;
     await api.deleteUzytkownik(id); load();
   };
   const handleMfaWymuszone = async (id, current) => { await api.setMfaWymuszone(id, !current); load(); };
   const handleResetMfa = async (id) => {
-    if (!confirm('Zresetować MFA temu użytkownikowi? Będzie musiał skonfigurować je ponownie.')) return;
+    if (!await confirm('Zresetować MFA temu użytkownikowi? Będzie musiał skonfigurować je ponownie.')) return;
     await api.resetMfa(id);
     showMsg('MFA zostało zresetowane');
     load();
@@ -369,11 +371,11 @@ export default function Uzytkownicy() {
 
   const handleWymusHaslo = async (u) => {
     if (u.force_password_change) {
-      if (!confirm('Cofnąć wymuszenie zmiany hasła?')) return;
+      if (!await confirm('Cofnąć wymuszenie zmiany hasła?')) return;
       await api.cofnijWymuszenieHasla(u.id);
       showMsg('Wymuszenie zmiany hasła cofnięte');
     } else {
-      if (!confirm('Wymusić zmianę hasła przy następnym logowaniu?')) return;
+      if (!await confirm('Wymusić zmianę hasła przy następnym logowaniu?')) return;
       await api.wymusPrzycZmianyHasla(u.id);
       showMsg('Zmiana hasła zostanie wymuszona');
     }
