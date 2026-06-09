@@ -3,10 +3,16 @@ import db from './db.js';
 // Zapisz log do bazy
 export async function log({ uzytkownik_id = null, login_proba = null, ip = null, akcja, zasob = null, szczegoly = null, sukces = true }) {
   try {
+    // Sprawdź czy uzytkownik_id istnieje w bazie (zabezpieczenie przed FK violation po restore)
+    let uid = uzytkownik_id || null;
+    if (uid) {
+      const check = await db.query('SELECT id FROM uzytkownicy WHERE id=$1', [uid]);
+      if (check.rows.length === 0) uid = null;
+    }
     await db.query(
       `INSERT INTO logi (uzytkownik_id, login_proba, ip, akcja, zasob, szczegoly, sukces)
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [uzytkownik_id || null, login_proba || null, ip || null, akcja, zasob || null, szczegoly || null, sukces]
+      [uid, login_proba || null, ip || null, akcja, zasob || null, szczegoly || null, sukces]
     );
   } catch (err) {
     console.error('Logger error:', err.message);

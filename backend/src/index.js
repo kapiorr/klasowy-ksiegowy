@@ -3,6 +3,7 @@ import cors from 'cors';
 import db from './db.js';
 import { hashHaslo } from './crypto.js';
 import { activityMiddleware, cleanOldLogs, getIP } from './logger.js';
+import { requireAuth } from './middleware/auth.js';
 import { startScheduler } from './scheduler.js';
 import authRouter from './routes/auth.js';
 import ucznowieRouter from './routes/ucznowie.js';
@@ -42,6 +43,14 @@ app.use(async (req, res, next) => {
 // Middleware aktywności (przed routerami)
 app.use(activityMiddleware);
 
+
+// GET /api/config — ustawienia aplikacji (wymaga autoryzacji)
+app.get('/api/config', requireAuth, (req, res) => {
+  res.json({
+    payment_account: process.env.PAYMENT_ACCOUNT || null,
+    payment_phone: process.env.PAYMENT_PHONE || null,
+  });
+});
 app.use('/api/auth', authRouter);
 app.use('/api/ucznowie', ucznowieRouter);
 app.use('/api/uzytkownicy', uzytkownicyRouter);

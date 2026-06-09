@@ -201,6 +201,7 @@ export const uploadSkladkaBackup = async (file) => {
 };
 
 export const getBackupConfig = () => request('/backup/config');
+export const getAppConfig = () => request('/config');
 
 export const getAutoBackups = () => {
   const token = localStorage.getItem('token');

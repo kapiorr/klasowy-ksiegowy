@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, getAppConfig } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 function ProgressBar({ value, max }) {
@@ -16,14 +16,15 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [skladki, setSkladki] = useState([]);
   const [mojeWplaty, setMojeWplaty] = useState([]);
+  const [appConfig, setAppConfig] = useState({});
   const [loading, setLoading] = useState(true);
 
   const isPodglad = user?.rola === 'podglad' && user?.uczen_id;
 
   useEffect(() => {
-    const loads = [api.getSkladki()];
-    Promise.all(loads).then(([s]) => {
+    Promise.all([api.getSkladki(), getAppConfig()]).then(([s, cfg]) => {
       setSkladki(s);
+      setAppConfig(cfg);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -96,6 +97,18 @@ export default function Dashboard() {
               );
             })}
           </div>
+          {(appConfig.payment_account || appConfig.payment_phone) && (
+            <div className="mt-4 pt-4 border-t border-amber-100 dark:border-amber-800">
+              <div className="font-body text-xs text-sage-600 dark:text-sage-400 space-y-1">
+                {appConfig.payment_account && (
+                  <div>Wpłaty możesz dokonać na nr konta: <span className="font-mono font-600 text-ink dark:text-gray-100">{appConfig.payment_account}</span></div>
+                )}
+                {appConfig.payment_phone && (
+                  <div>W wyjątkowych sytuacjach BLIKiem na nr: <span className="font-mono font-600 text-ink dark:text-gray-100">{appConfig.payment_phone}</span></div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
