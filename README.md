@@ -149,6 +149,11 @@ APP_URL=https://twojadomena.pl
 
 # Godzina automatycznego backupu (0-23, czas lokalny kontenera)
 BACKUP_HOUR=5
+
+# Dane do wpłat — wyświetlane użytkownikowi z rolą Podgląd na dashboardzie
+# Pozostaw puste jeśli nie chcesz wyświetlać
+PAYMENT_ACCOUNT=12 3456 7890 1234 5678 9012 3456
+PAYMENT_PHONE=600 123 456
 ```
 
 Ustaw odpowiednie uprawnienia:
