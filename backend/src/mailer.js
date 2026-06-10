@@ -11,10 +11,11 @@ function getTransport() {
   });
 }
 
-function appInfo() {
+function appInfo(html = false) {
   const cls = process.env.CLASS_NAME || '';
   const school = process.env.SCHOOL_NAME || '';
-  if (cls && school) return `Klasa ${cls} &bull; ${school}`;
+  const sep = html ? ' &bull; ' : ' · ';
+  if (cls && school) return `Klasa ${cls}${sep}${school}`;
   if (cls) return `Klasa ${cls}`;
   if (school) return school;
   return 'Klasowy Ksiegowy';
@@ -29,7 +30,7 @@ function layout(title, body, color = '#4a8c4a') {
     <!-- Naglowek -->
     <div style="background:${color};padding:24px 32px;">
       <div style="color:#fff;font-size:18px;font-weight:700;">Klasowy Ksiegowy</div>
-      <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-top:2px;">${appInfo()}</div>
+      <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-top:2px;">${appInfo(true)}</div>
     </div>
     <!-- Tytul -->
     <div style="padding:28px 32px 0;">
@@ -41,7 +42,7 @@ function layout(title, body, color = '#4a8c4a') {
     </div>
     <!-- Stopka -->
     <div style="padding:16px 32px;background:#f9f8f6;border-top:1px solid #e8e4dc;text-align:center;">
-      <div style="color:#aaa;font-size:11px;">${appInfo()} &bull; Klasowy Ksiegowy</div>
+      <div style="color:#aaa;font-size:11px;">${appInfo(true)} &bull; Klasowy Ksiegowy</div>
     </div>
   </div>
 </body>
