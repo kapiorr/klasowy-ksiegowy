@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { validateFile } from '../filecheck.js';
 import db from '../db.js';
 import { requireAuth, requireKsiegowy } from '../middleware/auth.js';
+import { log, getIP } from '../logger.js';
 
 const router = Router();
 
@@ -47,9 +48,8 @@ router.post('/', requireKsiegowy, async (req, res) => {
        RETURNING id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, created_at`,
       [skladka_id, kwota, opis.trim(), data || new Date().toISOString().split('T')[0], zNazwa, zDane, zTyp]
     );
-    const sNazwa = await db.query('SELECT nazwa FROM skladki WHERE id=$1', [skladka_id]);
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'add_wyplata', zasob: req.originalUrl,
-      szczegoly: `${opis} | ${parseFloat(kwota).toFixed(2)} zł | ${s.rows[0]?.nazwa || ''}${zNazwa ? ' | 📎 ' + zNazwa : ''}` });
+      szczegoly: `${opis} | ${parseFloat(kwota).toFixed(2)} zł${zNazwa ? ' | 📎 ' + zNazwa : ''}` });
     res.status(201).json(result.rows[0]);
   } catch (err) {
     console.error(err);
