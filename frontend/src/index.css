@@ -1,6 +1,28 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  --color-ink: #0f1117;
+  --color-paper: #f5f3ee;
+
+  --color-sage-50: #f2f7f2;
+  --color-sage-100: #e0ece0;
+  --color-sage-200: #c2d9c2;
+  --color-sage-400: #6fa86f;
+  --color-sage-600: #4a8c4a;
+  --color-sage-700: #3a6e3a;
+
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+
+  --color-rose-400: #fb7185;
+  --color-rose-500: #f43f5e;
+}
 
 @layer base {
   body {

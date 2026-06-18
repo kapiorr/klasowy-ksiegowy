@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: ksiegowy_db
     restart: unless-stopped
     env_file:
@@ -22,7 +22,7 @@ services:
       -c maintenance_work_mem=64MB
       -c random_page_cost=1.1
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - ./postgres_data:/var/lib/postgresql/
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -53,3 +53,4 @@ services:
       - "5173:80"
     depends_on:
       - backend
+
