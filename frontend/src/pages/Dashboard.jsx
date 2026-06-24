@@ -81,31 +81,51 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {isPodglad && mojeWplaty.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border-2 border-amber-200 dark:border-amber-700 p-5 mb-8">
-          <div className="font-body text-sm text-amber-600 dark:text-amber-400 mb-1">Masz jeszcze do zapłacenia</div>
-          <div className={`font-display text-3xl font-700 mb-4 ${sumaDoZaplaty > 0 ? 'text-amber-600' : 'text-sage-600'}`}>
-            {sumaDoZaplaty.toFixed(2)} zł
-          </div>
-          <div className="space-y-2">
-            {mojeWplaty.map(w => {
-              const pozostalo = w.kwota_na_osobe - w.wplacono;
-              return (
-                <div key={w.id} className="flex items-center justify-between text-sm">
-                  <span className="font-body text-ink dark:text-gray-100">{w.nazwa}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sage-500 text-xs">{w.wplacono.toFixed(2)} / {w.kwota_na_osobe.toFixed(2)} zł</span>
-                    {pozostalo > 0
-                      ? <span className="font-mono font-600 text-amber-600 text-xs bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">brakuje {pozostalo.toFixed(2)} zł</span>
-                      : <span className="font-mono font-600 text-sage-600 text-xs bg-sage-50 dark:bg-sage-900/30 px-2 py-0.5 rounded-full">✓ opłacono</span>
-                    }
+      {isPodglad && (
+        <div className={`bg-white dark:bg-gray-800 rounded-2xl border-2 p-5 mb-8 ${sumaDoZaplaty > 0 ? 'border-amber-200 dark:border-amber-700' : 'border-sage-200 dark:border-sage-700'}`}>
+          {sumaDoZaplaty > 0 ? (<>
+            <div className="font-body text-sm text-amber-600 dark:text-amber-400 mb-1">Masz jeszcze do zapłacenia</div>
+            <div className="font-display text-3xl font-700 text-amber-600 mb-4">
+              {sumaDoZaplaty.toFixed(2)} zł
+            </div>
+            <div className="space-y-2">
+              {mojeWplaty.map(w => {
+                const pozostalo = w.kwota_na_osobe - w.wplacono;
+                return (
+                  <div key={w.id} className="flex items-center justify-between text-sm">
+                    <span className="font-body text-ink dark:text-gray-100">{w.nazwa}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sage-500 text-xs">{w.wplacono.toFixed(2)} / {w.kwota_na_osobe.toFixed(2)} zł</span>
+                      {pozostalo > 0
+                        ? <span className="font-mono font-600 text-amber-600 text-xs bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">brakuje {pozostalo.toFixed(2)} zł</span>
+                        : <span className="font-mono font-600 text-sage-600 text-xs bg-sage-50 dark:bg-sage-900/30 px-2 py-0.5 rounded-full">✓ opłacono</span>
+                      }
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>) : (<>
+            <div className="font-body text-sm text-sage-600 dark:text-sage-400 mb-1">Stan płatności</div>
+            <div className="font-display text-xl font-700 text-sage-600 dark:text-sage-400 mb-3">
+              ✓ Nie masz żadnych składek do opłacenia
+            </div>
+            {mojeWplaty.length > 0 && (
+              <div className="space-y-2">
+                {mojeWplaty.map(w => (
+                  <div key={w.id} className="flex items-center justify-between text-sm">
+                    <span className="font-body text-ink dark:text-gray-100">{w.nazwa}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sage-500 text-xs">{w.wplacono.toFixed(2)} / {w.kwota_na_osobe.toFixed(2)} zł</span>
+                      <span className="font-mono font-600 text-sage-600 text-xs bg-sage-50 dark:bg-sage-900/30 px-2 py-0.5 rounded-full">✓ opłacono</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>)}
           {(appConfig.payment_account || appConfig.payment_phone) && (
-            <div className="mt-4 pt-4 border-t border-amber-100 dark:border-amber-800">
+            <div className="mt-4 pt-4 border-t border-sage-100 dark:border-gray-700">
               <div className="font-body text-xs text-sage-600 dark:text-sage-400 space-y-1">
                 {appConfig.payment_account && (
                   <div>Wpłaty możesz dokonać na nr konta: <span className="font-mono font-600 text-ink dark:text-gray-100">{appConfig.payment_account}</span></div>
