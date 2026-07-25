@@ -29,7 +29,7 @@ function layout(title, body, color = '#4a8c4a') {
   <div style="max-width:520px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
     <!-- Naglowek -->
     <div style="background:${color};padding:24px 32px;">
-      <div style="color:#fff;font-size:18px;font-weight:700;">Klasowy Ksiegowy</div>
+      <div style="color:#fff;font-size:18px;font-weight:700;">Klasowy Księgowy</div>
       <div style="color:rgba(255,255,255,0.8);font-size:13px;margin-top:2px;">${appInfo(true)}</div>
     </div>
     <!-- Tytul -->
@@ -63,8 +63,8 @@ function PLN(n) {
 export async function sendResetEmail(email, token) {
   const url = `${process.env.APP_URL}/reset-hasla?token=${token}`;
   const body = `
-    <p>Otrzymalismy prosbe o reset hasla do Twojego konta.</p>
-    <p>Kliknij przycisk poniźej aby ustawić nowe hasło. Link jest ważny przez <strong>1 godzine</strong>.</p>
+    <p>Otrzymaliśmy prośbę o reset hasła do Twojego konta.</p>
+    <p>Kliknij przycisk poniżej aby ustawić nowe hasło. Link jest ważny przez <strong>1 godzine</strong>.</p>
     ${btn(url, 'Ustaw nowe haslo')}
     <p style="color:#999;font-size:12px;">Jesli nie prosiłeś o reset hasła, zignoruj te wiadomość.</p>
     <p style="color:#ccc;font-size:11px;word-break:break-all;">${url}</p>
