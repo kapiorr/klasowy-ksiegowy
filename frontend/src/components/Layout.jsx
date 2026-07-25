@@ -26,11 +26,14 @@ export default function Layout() {
   const NavContent = () => (
     <>
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ to, label, icon, exact }) => (
-          <NavLink key={to} to={to} end={exact} className={linkCls} onClick={close}>
-            <span className="text-base">{icon}</span>{label}
-          </NavLink>
-        ))}
+        {navItems.map(({ to, label, icon, exact }) => {
+          if (to === '/skladki' && user?.rola === 'podglad') return null;
+          return (
+            <NavLink key={to} to={to} end={exact} className={linkCls} onClick={close}>
+              <span className="text-base">{icon}</span>{label}
+            </NavLink>
+          );
+        })}
         {['admin', 'ksiegowy'].includes(user?.rola) && (
           <NavLink to="/uzytkownicy" className={linkCls} onClick={close}>
             <span className="text-base">⊕</span>Użytkownicy

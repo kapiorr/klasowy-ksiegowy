@@ -116,6 +116,13 @@ async function migrate() {
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT[]`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_wymuszone BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS email VARCHAR(200)`,
+    `DO $$ BEGIN
+       IF NOT EXISTS (
+         SELECT 1 FROM pg_constraint WHERE conname = 'uzytkownicy_email_unique'
+       ) THEN
+         ALTER TABLE uzytkownicy ADD CONSTRAINT uzytkownicy_email_unique UNIQUE (email);
+       END IF;
+     END $$`,
     `CREATE TABLE IF NOT EXISTS tokeny_reset (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       uzytkownik_id UUID NOT NULL REFERENCES uzytkownicy(id) ON DELETE CASCADE,

@@ -130,6 +130,68 @@ function ImportModal({ onClose, onDone }) {
   );
 }
 
+function WplatyUczniaModal({ uczen, onClose }) {
+  const [wplaty, setWplaty] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getWplatyUczen(uczen.id)
+      .then(setWplaty)
+      .catch(() => setWplaty([]))
+      .finally(() => setLoading(false));
+  }, [uczen.id]);
+
+  const suma = wplaty.reduce((s, w) => s + parseFloat(w.kwota || 0), 0);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-xl">
+        <div className="p-5 border-b border-sage-100 dark:border-gray-700 flex items-center justify-between">
+          <div>
+            <h3 className="font-display font-700 text-ink dark:text-gray-100">Wpłaty ucznia</h3>
+            <p className="font-body text-sm text-sage-500">{uczen.nazwisko} {uczen.imie}</p>
+          </div>
+          <button onClick={onClose} className="text-sage-400 hover:text-ink text-xl dark:hover:text-gray-100">✕</button>
+        </div>
+        <div className="p-5 max-h-[60vh] overflow-y-auto">
+          {loading ? (
+            <div className="text-center py-8 font-body text-sage-500">Ładowanie...</div>
+          ) : wplaty.length === 0 ? (
+            <div className="text-center py-8 font-body text-sage-500">Brak wpłat</div>
+          ) : (
+            <div className="divide-y divide-sage-50 dark:divide-gray-700">
+              {wplaty.map(w => (
+                <div key={w.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <div className="font-body text-sm font-500 text-ink dark:text-gray-100">{w.skladka_nazwa}</div>
+                    <div className="font-body text-xs text-sage-400">
+                      {w.data ? new Date(w.data).toLocaleDateString('pl-PL') : new Date(w.created_at).toLocaleDateString('pl-PL')}
+                      {w.skladka_status === 'zakonczona' && <span className="ml-2 text-sage-400">(archiwalna)</span>}
+                    </div>
+                  </div>
+                  <span className="font-mono text-sm font-600 text-sage-600">{parseFloat(w.kwota).toFixed(2)} zł</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {!loading && wplaty.length > 0 && (
+          <div className="px-5 py-3 border-t border-sage-100 dark:border-gray-700 flex justify-between items-center">
+            <span className="font-body text-sm text-sage-600 dark:text-sage-400">Razem wpłacono</span>
+            <span className="font-mono font-700 text-ink dark:text-gray-100">{suma.toFixed(2)} zł</span>
+          </div>
+        )}
+        <div className="px-5 pb-5">
+          <button onClick={onClose}
+            className="w-full border border-sage-200 dark:border-gray-600 rounded-xl py-2.5 font-body text-ink dark:text-gray-100 hover:bg-sage-50 dark:hover:bg-gray-700">
+            Zamknij
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Ucznowie() {
   const { user } = useAuth();
   const [ucznowie, setUcznowie] = useState([]);
@@ -137,11 +199,18 @@ export default function Ucznowie() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [importModal, setImportModal] = useState(false);
+  const [wplatyUczen, setWplatyUczen] = useState(null);
   const { confirm } = useDialog();
   const isKsiegowy = ['admin', 'ksiegowy'].includes(user?.rola);
+  const showWplaty = ['admin', 'podglad_pelny'].includes(user?.rola);
+  const isPodglad = user?.rola === 'podglad';
 
   const [pokazNieaktywnych, setPokazNieaktywnych] = useState(false);
-  const load = () => api.getUcznowie(pokazNieaktywnych).then(setUcznowie).finally(() => setLoading(false));
+  const load = () => api.getUcznowie(isPodglad ? false : pokazNieaktywnych)
+    .then(data => setUcznowie([...data].sort((a, b) =>
+      `${a.nazwisko} ${a.imie}`.localeCompare(`${b.nazwisko} ${b.imie}`, 'pl')
+    )))
+    .finally(() => setLoading(false));
   useEffect(() => { load(); }, [pokazNieaktywnych]);
 
   const handleSave = async (form) => {
@@ -174,32 +243,35 @@ export default function Ucznowie() {
         <UczenModal initial={editing} onClose={() => { setModal(false); setEditing(null); }} onSave={handleSave} />
       )}
       {importModal && <ImportModal onClose={() => setImportModal(false)} onDone={load} />}
+      {wplatyUczen && <WplatyUczniaModal uczen={wplatyUczen} onClose={() => setWplatyUczen(null)} />}
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
         <div>
           <h1 className="font-display text-3xl font-700 text-ink dark:text-gray-100">Uczniowie</h1>
           <p className="font-body text-sage-600 mt-1">{ucznowie.length} uczniów w klasie</p>
         </div>
-        <div className="flex gap-2 flex-wrap justify-end">
+        {!isPodglad && (
+          <div className="flex gap-2 flex-wrap justify-end">
             <button onClick={() => setPokazNieaktywnych(p => !p)}
               className={`font-body text-sm px-4 py-2.5 rounded-xl border transition-colors ${pokazNieaktywnych ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-sage-200 text-sage-600 hover:bg-sage-50'}`}>
               {pokazNieaktywnych ? 'Ukryj nieaktywnych' : 'Pokaż nieaktywnych'}
             </button>
             {isKsiegowy && (<>
-            <button onClick={() => setImportModal(true)}
-              className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
-              ⬆ Import CSV
-            </button>
-            <button onClick={downloadUczniowieCsv}
-              className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
-              ⬇ Eksport CSV
-            </button>
-            <button onClick={() => setModal(true)}
-              className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">
-              + Dodaj ucznia
-            </button>
+              <button onClick={() => setImportModal(true)}
+                className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
+                ⬆ Import CSV
+              </button>
+              <button onClick={downloadUczniowieCsv}
+                className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
+                ⬇ Eksport CSV
+              </button>
+              <button onClick={() => setModal(true)}
+                className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">
+                + Dodaj ucznia
+              </button>
             </>)}
           </div>
+        )}
       </div>
 
       {ucznowie.length === 0 ? (
@@ -216,8 +288,12 @@ export default function Ucznowie() {
                 <span className={`font-body ${u.aktywny ? 'text-ink' : 'text-sage-400 line-through'}`}>{u.nazwisko} {u.imie}</span>
                 {!u.aktywny && <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Nieaktywny</span>}
               </div>
-              {isKsiegowy && (
-                <div className="flex gap-3">
+              <div className="flex gap-3">
+                {showWplaty && (
+                  <button onClick={() => setWplatyUczen(u)}
+                    className="text-xs font-body text-sage-600 hover:text-sage-700 underline">Wpłaty</button>
+                )}
+                {isKsiegowy && (<>
                   <button onClick={() => setEditing(u)}
                     className="text-xs font-body text-sage-600 hover:text-sage-700 underline">Edytuj</button>
                   <button onClick={() => handleToggleAktywny(u)}
@@ -226,8 +302,8 @@ export default function Ucznowie() {
                   </button>
                   <button onClick={() => handleDelete(u.id)}
                     className="text-xs font-body text-rose-400 hover:text-rose-500 underline">Usuń</button>
-                </div>
-              )}
+                </>)}
+              </div>
             </div>
           ))}
         </div>

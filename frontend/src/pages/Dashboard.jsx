@@ -12,14 +12,62 @@ function ProgressBar({ value, max }) {
   );
 }
 
+function TwojeWplaty({ historiaWplat }) {
+  const [open, setOpen] = useState(false);
+  const suma = historiaWplat.reduce((s, w) => s + parseFloat(w.kwota || 0), 0);
+
+  return (
+    <div className="mt-8">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 px-5 py-4 hover:border-sage-300 dark:hover:border-gray-500 transition-colors">
+        <span className="font-display text-lg font-600 text-ink dark:text-gray-100">Twoje wpłaty</span>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-sm font-600 text-sage-600">{suma.toFixed(2)} zł</span>
+          <span className="text-sage-400 text-sm">{open ? '▲' : '▼'}</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-sage-100 dark:border-gray-700 overflow-hidden">
+          {historiaWplat.length === 0 ? (
+            <div className="p-8 text-center font-body text-sage-500 dark:text-sage-400">Brak wpłat</div>
+          ) : (
+            <div className="divide-y divide-sage-50 dark:divide-gray-700">
+              {historiaWplat.map(w => (
+                <div key={w.id} className="flex items-center justify-between px-5 py-3">
+                  <div>
+                    <div className="font-body text-sm font-500 text-ink dark:text-gray-100">{w.skladka_nazwa}</div>
+                    <div className="font-body text-xs text-sage-400">
+                      {w.data ? new Date(w.data).toLocaleDateString('pl-PL') : new Date(w.created_at).toLocaleDateString('pl-PL')}
+                      {w.skladka_status === 'zakonczona' && <span className="ml-2">(archiwalna)</span>}
+                    </div>
+                  </div>
+                  <span className="font-mono text-sm font-600 text-sage-600">{parseFloat(w.kwota).toFixed(2)} zł</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-5 py-3 bg-sage-50 dark:bg-gray-700/50">
+                <span className="font-body text-sm font-500 text-sage-600 dark:text-sage-400">Razem wpłacono</span>
+                <span className="font-mono text-sm font-700 text-ink dark:text-gray-100">{suma.toFixed(2)} zł</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [skladki, setSkladki] = useState([]);
   const [mojeWplaty, setMojeWplaty] = useState([]);
+  const [historiaWplat, setHistoriaWplat] = useState([]);
   const [appConfig, setAppConfig] = useState({});
   const [loading, setLoading] = useState(true);
 
   const isPodglad = ['podglad', 'podglad_pelny'].includes(user?.rola) && user?.uczen_id;
+  const showTwojeWplaty = ['podglad', 'podglad_pelny'].includes(user?.rola) && user?.uczen_id;
 
   useEffect(() => {
     Promise.all([api.getSkladki(), getAppConfig()]).then(([s, cfg]) => {
@@ -28,7 +76,13 @@ export default function Dashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
-  // Dla podglądu z przypisanym uczniem — pobierz stan wpłat ucznia
+  // Historia wszystkich wpłat dla ról podglad i podglad_pelny z uczniem
+  useEffect(() => {
+    if (!showTwojeWplaty) return;
+    api.getMojeWplaty().then(setHistoriaWplat).catch(() => {});
+  }, [showTwojeWplaty]);
+
+  // Dla podglądu z przypisanym uczniem — pobierz stan wpłat ucznia z aktywnych składek
   useEffect(() => {
     if (!isPodglad) return;
     api.getSkladki().then(async (s) => {
@@ -36,8 +90,6 @@ export default function Dashboard() {
       const details = await Promise.all(aktywneS.map(sk => api.getSkladka(sk.id)));
       const uczenId = user?.uczen_id;
       setMojeWplaty(details.map(d => {
-        // podglad: wplaty zawiera tylko jego wpłaty
-        // podglad_pelny: wplaty zawiera wszystkich — filtrujemy po uczen_id
         const jegoWplaty = d.wplaty?.filter(w => w.uczen_id === uczenId) || [];
         const przypisany = d.wplaty?.some(w => w.uczen_id === uczenId) || false;
         if (!przypisany) return null;
@@ -54,8 +106,6 @@ export default function Dashboard() {
 
   const aktywne = skladki.filter(s => s.status === 'aktywna');
   const totalSaldo = skladki.reduce((sum, s) => sum + parseFloat(s.saldo || 0), 0);
-
-  // Kwoty do zapłaty dla podglądu
   const doZaplaty = mojeWplaty.filter(w => w.wplacono < w.kwota_na_osobe);
   const sumaDoZaplaty = doZaplaty.reduce((s, w) => s + (w.kwota_na_osobe - w.wplacono), 0);
 
@@ -68,17 +118,19 @@ export default function Dashboard() {
         <p className="font-body text-sage-600 mt-1">Przegląd aktywnych składek</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className={`grid grid-cols-1 ${user?.rola !== 'podglad' ? 'sm:grid-cols-2' : ''} gap-4 mb-8`}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-5">
           <div className="font-body text-sage-600 text-sm mb-1">Aktywne składki</div>
           <div className="font-display text-3xl font-700 text-ink dark:text-gray-100">{aktywne.length}</div>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-5">
-          <div className="font-body text-sage-600 text-sm mb-1">Ogólne saldo</div>
-          <div className={`font-display text-3xl font-700 ${totalSaldo >= 0 ? 'text-sage-600' : 'text-rose-500'}`}>
-            {totalSaldo.toFixed(2)} zł
+        {user?.rola !== 'podglad' && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-5">
+            <div className="font-body text-sage-600 text-sm mb-1">Ogólne saldo</div>
+            <div className={`font-display text-3xl font-700 ${totalSaldo >= 0 ? 'text-sage-600' : 'text-rose-500'}`}>
+              {totalSaldo.toFixed(2)} zł
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {isPodglad && (
@@ -148,7 +200,7 @@ export default function Dashboard() {
         {aktywne.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-8 text-center">
             <div className="text-3xl mb-3">📭</div>
-            <div className="font-body text-sage-600 dark:text-sage-400 dark:text-gray-500">Brak aktywnych składek</div>
+            <div className="font-body text-sage-600 dark:text-sage-400">Brak aktywnych składek</div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -170,7 +222,7 @@ export default function Dashboard() {
                       )}
                     </div>
                     <div className="text-right space-y-0.5">
-                      <div className="font-mono text-sm font-500 text-sage-600 dark:text-sage-400 dark:text-gray-500">
+                      <div className="font-mono text-sm font-500 text-sage-600 dark:text-sage-400">
                         {zebrano.toFixed(2)} / {cel.toFixed(2)} zł
                       </div>
                       {wyplacono > 0 && (
@@ -192,6 +244,8 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {showTwojeWplaty && <TwojeWplaty historiaWplat={historiaWplat} />}
     </div>
   );
 }

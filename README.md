@@ -16,27 +16,44 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Backup i restore pojedynczej składki (JSON)
 
 ### Uczniowie
-- Lista uczniów klasy z możliwością dezaktywacji
-- Nieaktywny uczeń nie jest dodawany do nowych składek, ale jego historia pozostaje
+- Lista uczniów klasy posortowana alfabetycznie
+- Możliwość dezaktywacji — nieaktywny uczeń nie jest dodawany do nowych składek, ale jego historia pozostaje
 - Import uczniów z pliku CSV (`imie;nazwisko`)
+- Admin i Podgląd pełny mogą przeglądać historię wszystkich wpłat ucznia (kliknięcie "Wpłaty" przy uczniu)
 
 ### Użytkownicy i role
 
 | Rola | Uprawnienia |
 |---|---|
-| **Admin** | Pełny dostęp — składki, wpłaty, uczniowie, użytkownicy (CRUD), backup, logi, statystyki |
-| **Księgowy** | Składki/wpłaty/wypłaty (pełny), uczniowie (pełny), użytkownicy (tylko odczyt) |
-| **Podgląd pełny** | Odczyt wszystkiego, brak edycji |
-| **Podgląd** | Tylko własne wpłaty — **wymaga** przypisania ucznia |
+| **Admin** | Pełny dostęp — składki, wpłaty, uczniowie, użytkownicy (CRUD), backup, logi, statystyki, mailing |
+| **Księgowy** | Składki/wpłaty/wypłaty (pełny), uczniowie (pełny), użytkownicy (tylko odczyt), mailing |
+| **Podgląd pełny** | Odczyt wszystkiego, lista uczniów z historią wpłat, opcjonalnie przypisany uczeń |
+| **Podgląd** | Własne zaległości na dashboardzie, lista aktywnych uczniów, historia własnych wpłat — **wymaga** przypisania ucznia |
 
+- Logowanie możliwe zarówno loginem jak i adresem email
+- Login i email muszą być unikalne — walidacja przy tworzeniu i edycji użytkownika
 - Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko`)
 - Wysyłka maila powitalnego z linkiem do ustawienia hasła — przy zakładaniu konta lub z poziomu edycji
   - Czas ważności linku do wyboru: 15 min / 1h / 2h / 6h / 1 dzień / 2 dni / 5 dni / 7 dni
 - Rola `podglad` wymaga obowiązkowo przypisania ucznia
-- Rola `podglad_pelny` może opcjonalnie mieć przypisanego ucznia (wtedy widzi kafelek z zaległościami na dashboardzie)
+- Rola `podglad_pelny` może opcjonalnie mieć przypisanego ucznia (wtedy widzi kafelek z zaległościami i historię własnych wpłat na dashboardzie)
 - Wymuszanie MFA per użytkownik
 - Wymuszanie zmiany hasła przy następnym logowaniu
 - Reset MFA przez admina
+
+### Dashboard
+- Kafelek "Masz jeszcze do zapłacenia" / "Nie masz żadnych składek do opłacenia" dla ról `podglad` i `podglad_pelny` z przypisanym uczniem
+  - Suma zaległości ze wszystkich aktywnych składek
+  - Szczegółowa lista składek z kwotami
+  - Dane do wpłat (nr konta, BLIK) z `.env`
+- Sekcja "Twoje wpłaty" (rozwijalna) — pełna historia wpłat ze wszystkich składek z sumą
+- Rola `podglad` nie widzi ogólnego salda klasy
+
+### Mailing
+- Powiadomienie o nowej składce — wysyłka do użytkowników przypisanych do składki z kwotą do zapłacenia i opisem składki (jeśli istnieje)
+- Przypomnienie o zaległościach — na żądanie admina/księgowego, do wszystkich lub wybranych użytkowników z zaległościami
+- Podgląd listy odbiorców przed wysyłką
+- Maile zawierają nazwę klasy i szkoły z `.env`
 
 ### Bezpieczeństwo
 - Hasła hashowane **Argon2id** z pieprzem (PEPPER)
@@ -45,10 +62,9 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Blokada konta i IP po 5 nieudanych próbach logowania (1h), mail do admina
 - Weryfikacja plików po **magic bytes** (JPEG, PNG, GIF, WebP, PDF)
 - Reset hasła przez email (link ważny 1h) — po zmianie hasła aktywne sesje są unieważniane
-- Mail powitalny z linkiem do ustawienia hasła (ważny 15 min) — przy wysyłce aktywne sesje użytkownika są natychmiast unieważniane
-- Reset hasła przez email unieważnia wszystkie aktywne sesje JWT
 - Parametryzowane zapytania SQL — ochrona przed SQL injection
 - Porty bazy danych i backendu niewystawione na zewnątrz
+- Unikalność loginu i emaila na poziomie bazy i aplikacji
 
 ### Logi aktywności
 - Szczegółowe logi wszystkich akcji (kto, co, kiedy, z jakiego IP)
@@ -65,18 +81,12 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Top 20 zapytań SQL wg wywołań (pg_stat_statements)
 - Reset statystyk zapytań
 
-### Dashboard
-- Kafelek "Masz jeszcze do zapłacenia" dla ról `podglad` i `podglad_pelny` z przypisanym uczniem
-  - Suma zaległości ze wszystkich aktywnych składek
-  - Szczegółowa lista składek z kwotami
-  - Dane do wpłat (nr konta, BLIK) z `.env`
-
 ### Inne
 - **Tryb ciemny** — wykrywa preferencje systemu, zapamiętuje wybór
 - **PWA** — można zainstalować jako aplikację na telefonie
 - **Responsive** — w pełni obsługiwany na urządzeniach mobilnych
 - Backup całej bazy i restore (JSON z załącznikami base64)
-- **Automatyczny backup** codziennie o 5:00 — przechowywane 7 ostatnich kopii, każdą można pobrać lub przywrócić jednym kliknięciem z poziomu aplikacji
+- **Automatyczny backup** codziennie o godzinie ustawionej w `.env` — przechowywane 7 ostatnich kopii
 - Ręczne uruchomienie backupu w dowolnym momencie z panelu Backup
 
 ---
@@ -85,9 +95,9 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 
 | Warstwa | Technologia |
 |---|---|
-| Frontend | React 18, Tailwind CSS, Vite |
-| Backend | Node.js 22, Express |
-| Baza danych | PostgreSQL 16 |
+| Frontend | React 19, Tailwind CSS 4, Vite 8 |
+| Backend | Node.js 22, Express 5 |
+| Baza danych | PostgreSQL 18 |
 | Konteneryzacja | Docker, Docker Compose |
 | Dostęp zewnętrzny | Cloudflare Tunnel |
 | Czcionki | Syne, DM Sans, DM Mono |
@@ -99,7 +109,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Wymagania
 - Docker i Docker Compose
 - Cloudflare Tunnel (opcjonalnie, do dostępu z zewnątrz)
-- Konto Mailgun (opcjonalnie, do resetowania hasła)
+- Konto pocztowe SMTP (opcjonalnie, do resetowania hasła i mailingu)
 
 ### 1. Sklonuj repozytorium
 
@@ -145,7 +155,7 @@ POSTGRES_PASSWORD=haslo_do_bazy
 POSTGRES_DB=klasowy_ksiegowy
 DATABASE_URL=postgres://ksiegowy:haslo_do_bazy@db:5432/klasowy_ksiegowy
 
-# Email (Mailgun SMTP) — opcjonalne, wymagane do resetowania hasła i zaproszeń
+# Email (SMTP) — opcjonalne, wymagane do resetowania hasła, zaproszeń i mailingu
 EMAIL_SERVER=smtp.mailgun.org
 EMAIL_SERVER_PORT=587
 EMAIL_SERVER_USER=postmaster@twojadomena.pl
@@ -164,8 +174,7 @@ BACKUP_HOUR=5
 PAYMENT_ACCOUNT=12 3456 7890 1234 5678 9012 3456
 PAYMENT_PHONE=600 123 456
 
-
-# Informacje o klasie wyświetlane na stronie logowania (opcjonalne)
+# Informacje o klasie wyświetlane na stronie logowania i w mailach (opcjonalne)
 CLASS_NAME=VI
 SCHOOL_NAME=SP nr 1
 ```
@@ -219,7 +228,7 @@ klasowy-ksiegowy/
 │   │   ├── fonts/          # Fonty DejaVu (PDF)
 │   │   ├── crypto.js       # Argon2, AES-256-GCM
 │   │   ├── logger.js       # Logi aktywności
-│   │   ├── mailer.js       # Email (Mailgun)
+│   │   ├── mailer.js       # Email (SMTP)
 │   │   ├── scheduler.js    # Automatyczny backup
 │   │   └── filecheck.js    # Weryfikacja magic bytes
 │   ├── init.sql            # Schemat bazy danych
@@ -227,7 +236,7 @@ klasowy-ksiegowy/
 ├── frontend/
 │   ├── src/
 │   │   ├── pages/          # Strony React
-│   │   ├── components/     # Layout, komponenty
+│   │   ├── components/     # Layout, Dialog, komponenty
 │   │   ├── context/        # Auth, Theme
 │   │   └── api.js          # Klient API
 │   ├── public/             # PWA manifest, ikony, service worker

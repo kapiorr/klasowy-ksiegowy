@@ -96,11 +96,11 @@ export default function Login() {
           {step === 'haslo' && (
             <form onSubmit={submitLogin} className="space-y-5">
               <div>
-                <label className="block font-body text-sm font-500 text-ink mb-1.5">Login</label>
+                <label className="block font-body text-sm font-500 text-ink mb-1.5">Login lub email</label>
                 <input type="text" value={form.login}
                   onChange={e => setForm(f => ({ ...f, login: e.target.value }))}
                   className="w-full border border-sage-200 rounded-xl px-4 py-3 font-body text-ink focus:outline-none focus:border-sage-600"
-                  placeholder="twój login" required />
+                  placeholder="login lub email" required />
               </div>
               <div>
                 <label className="block font-body text-sm font-500 text-ink mb-1.5">Hasło</label>

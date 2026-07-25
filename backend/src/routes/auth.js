@@ -37,7 +37,10 @@ router.post('/login', async (req, res) => {
       return res.status(429).json({ error: 'Konto lub adres IP jest zablokowany. Spróbuj ponownie za godzinę.' });
     }
 
-    const result = await db.query('SELECT * FROM uzytkownicy WHERE login = $1', [login]);
+    const result = await db.query(
+      'SELECT * FROM uzytkownicy WHERE login = $1 OR (email = $1 AND email IS NOT NULL)',
+      [login]
+    );
     const user = result.rows[0];
 
     if (!user) {

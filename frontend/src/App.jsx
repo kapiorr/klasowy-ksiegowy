@@ -22,7 +22,7 @@ function Protected({ children, onlyAdmin = false, onlyKsiegowy = false, onlyKsie
   if (!user) return <Navigate to="/login" replace />;
   if (onlyAdmin && user.rola !== 'admin') return <Navigate to="/" replace />;
   if (onlyKsiegowy && !['admin', 'ksiegowy'].includes(user.rola)) return <Navigate to="/" replace />;
-  if (onlyKsiegowyOrPelny && !['admin', 'ksiegowy', 'podglad_pelny'].includes(user.rola)) return <Navigate to="/" replace />;
+  if (onlyKsiegowyOrPelny && !['admin', 'ksiegowy', 'podglad_pelny', 'podglad'].includes(user.rola)) return <Navigate to="/" replace />;
   return children;
 }
 

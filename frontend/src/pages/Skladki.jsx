@@ -93,6 +93,7 @@ export default function Skladki() {
   const [editing, setEditing] = useState(null);
   const { confirm, alert } = useDialog();
   const isKsiegowy = ['admin', 'ksiegowy'].includes(user?.rola);
+  const isPodglad = user?.rola === 'podglad' && user?.uczen_id;
 
   const load = () => api.getSkladki().then(setSkladki).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
@@ -177,7 +178,7 @@ export default function Skladki() {
         </div>
       ) : (
         <div className="space-y-3">
-          {skladki.map(s => {
+          {(isPodglad ? skladki.filter(s => s.status === 'aktywna') : skladki).map(s => {
             const cel = parseFloat(s.cel_lacznie || 0);
             const zebrano = parseFloat(s.zebrano_lacznie || 0);
             const wyplacono = parseFloat(s.wyplacono_lacznie || 0);

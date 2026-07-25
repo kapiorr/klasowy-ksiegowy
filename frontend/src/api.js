@@ -100,6 +100,8 @@ export const api = {
   updateWplata: (id, data) => request(`/wplaty/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteWplata: (id) => request(`/wplaty/${id}`, { method: 'DELETE' }),
   getWplatyHistoria: (skladka_id, uczen_id) => request(`/wplaty/historia?skladka_id=${skladka_id}&uczen_id=${uczen_id}`),
+  getWplatyUczen: (uczen_id) => request(`/wplaty/uczen/${uczen_id}`),
+  getMojeWplaty: () => request('/wplaty/moje'),
 
   // Wypłaty
   getWyplaty: (skladka_id) => request(`/wyplaty?skladka_id=${skladka_id}`),

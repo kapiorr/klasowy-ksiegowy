@@ -132,4 +132,42 @@ router.delete('/:id', requireKsiegowy, async (req, res) => {
   }
 });
 
+// GET /wplaty/moje — wszystkie wpłaty zalogowanego użytkownika ze wszystkich składek
+router.get('/moje', requireAuth, async (req, res) => {
+  try {
+    const uczen_id = req.user.uczen_id;
+    if (!uczen_id) return res.json([]);
+    const result = await db.query(`
+      SELECT
+        w.id, w.kwota, w.data, w.created_at,
+        s.nazwa AS skladka_nazwa, s.status AS skladka_status
+      FROM wplaty w
+      JOIN skladki s ON s.id = w.skladka_id
+      WHERE w.uczen_id = $1
+      ORDER BY w.data DESC, w.created_at DESC
+    `, [uczen_id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// GET /wplaty/uczen/:id — wszystkie wpłaty ucznia ze wszystkich składek (admin/ksiegowy)
+router.get('/uczen/:id', requireKsiegowy, async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT
+        w.id, w.kwota, w.data, w.created_at,
+        s.nazwa AS skladka_nazwa, s.status AS skladka_status
+      FROM wplaty w
+      JOIN skladki s ON s.id = w.skladka_id
+      WHERE w.uczen_id = $1
+      ORDER BY w.data DESC, w.created_at DESC
+    `, [req.params.id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 export default router;

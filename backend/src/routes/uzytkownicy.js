@@ -41,6 +41,18 @@ router.post('/', async (req, res) => {
     }
 
     const haslo_hash = await hashHaslo(haslo);
+
+    // Sprawdź unikalność loginu i emaila
+    const conflict = await db.query(
+      `SELECT login, email FROM uzytkownicy WHERE login=$1 OR (email=$2 AND email IS NOT NULL AND $2 != '')`,
+      [login, email || '']
+    );
+    if (conflict.rows.length > 0) {
+      const row = conflict.rows[0];
+      if (row.login === login) return res.status(409).json({ error: 'Login już zajęty' });
+      if (email && row.email === email) return res.status(409).json({ error: 'Email już zajęty' });
+    }
+
     const result = await db.query(
       `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
@@ -76,6 +88,15 @@ router.patch('/:id', requireAdmin, async (req, res) => {
       if (parseInt(adminCount.rows[0].count) <= 1) {
         return res.status(400).json({ error: 'Nie możesz zmienić roli — jesteś jedynym administratorem.' });
       }
+    }
+
+    // Sprawdź czy email nie jest zajęty przez innego użytkownika
+    if (email && email !== staryRow?.email) {
+      const emailConflict = await db.query(
+        'SELECT id FROM uzytkownicy WHERE email=$1 AND id!=$2',
+        [email, req.params.id]
+      );
+      if (emailConflict.rows.length > 0) return res.status(409).json({ error: 'Email już zajęty' });
     }
 
     const result = await db.query(
