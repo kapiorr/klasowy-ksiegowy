@@ -26,12 +26,14 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 | Rola | Uprawnienia |
 |---|---|
 | **Admin** | Pełny dostęp — składki, wpłaty, uczniowie, użytkownicy (CRUD), backup, logi, statystyki, mailing |
-| **Księgowy** | Składki/wpłaty/wypłaty (pełny), uczniowie (pełny), użytkownicy (tylko odczyt), mailing |
-| **Podgląd pełny** | Odczyt wszystkiego, lista uczniów z historią wpłat, opcjonalnie przypisany uczeń |
+| **Księgowy** | Składki/wpłaty/wypłaty (pełny), uczniowie (pełny), użytkownicy (tylko odczyt), mailing; opcjonalnie przypisany uczeń (wtedy widzi własne zaległości i wpłaty na dashboardzie) |
+| **Podgląd pełny** | Odczyt wszystkiego, lista uczniów z historią wpłat; opcjonalnie przypisany uczeń (własne zaległości i wpłaty na dashboardzie) |
 | **Podgląd** | Własne zaległości na dashboardzie, lista aktywnych uczniów, historia własnych wpłat — **wymaga** przypisania ucznia |
 
 - Logowanie możliwe zarówno loginem jak i adresem email
 - Login i email muszą być unikalne — walidacja przy tworzeniu i edycji użytkownika
+- Pola użytkownika: login, hasło, rola, imię, nazwisko, email (opcjonalny, walidowany), telefon (opcjonalny, walidowany), powiązany uczeń
+- Przypisanie ucznia możliwe dla dowolnej roli; wymagane tylko dla roli `podglad`
 - Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko`)
 - Wysyłka maila powitalnego z linkiem do ustawienia hasła — przy zakładaniu konta lub z poziomu edycji
   - Czas ważności linku do wyboru: 15 min / 1h / 2h / 6h / 1 dzień / 2 dni / 5 dni / 7 dni
@@ -42,16 +44,16 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Reset MFA przez admina
 
 ### Dashboard
-- Kafelek "Masz jeszcze do zapłacenia" / "Nie masz żadnych składek do opłacenia" dla ról `podglad` i `podglad_pelny` z przypisanym uczniem
+- Kafelek "Masz jeszcze do zapłacenia" / "Nie masz żadnych składek do opłacenia" dla ról `podglad`, `podglad_pelny` i `ksiegowy` z przypisanym uczniem
   - Suma zaległości ze wszystkich aktywnych składek
   - Szczegółowa lista składek z kwotami
   - Dane do wpłat (nr konta, BLIK) z `.env`
-- Sekcja "Twoje wpłaty" (rozwijalna) — pełna historia wpłat ze wszystkich składek z sumą
+- Sekcja "Twoje wpłaty" (rozwijalna) — pełna historia wpłat ze wszystkich składek z sumą; widoczna dla `podglad`, `podglad_pelny` i `ksiegowy` z przypisanym uczniem
 - Rola `podglad` nie widzi ogólnego salda klasy
 
 ### Mailing
 - Powiadomienie o nowej składce — wysyłka do użytkowników przypisanych do składki z kwotą do zapłacenia i opisem składki (jeśli istnieje)
-- Przypomnienie o zaległościach — na żądanie admina/księgowego, do wszystkich lub wybranych użytkowników z zaległościami
+- Przypomnienie o zaległościach — na żądanie admina/księgowego, do wszystkich lub wybranych użytkowników z zaległościami (role: podglad, podglad_pelny, ksiegowy)
 - Podgląd listy odbiorców przed wysyłką
 - Maile zawierają nazwę klasy i szkoły z `.env`
 
@@ -86,7 +88,11 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - **PWA** — można zainstalować jako aplikację na telefonie
 - **Responsive** — w pełni obsługiwany na urządzeniach mobilnych
 - Backup całej bazy i restore (JSON z załącznikami base64)
-- **Automatyczny backup** codziennie o godzinie ustawionej w `.env` — przechowywane 7 ostatnich kopii
+- **Automatyczny backup** codziennie o godzinie ustawionej w `.env` z czterema poziomami retencji:
+  - Dzienny — przechowywany 7 dni
+  - Tygodniowy (poniedziałek) — przechowywany 6 miesięcy
+  - Miesięczny (1. dzień miesiąca) — przechowywany 12 miesięcy
+  - Roczny (1 stycznia) — przechowywany 8 lat
 - Ręczne uruchomienie backupu w dowolnym momencie z panelu Backup
 
 ---

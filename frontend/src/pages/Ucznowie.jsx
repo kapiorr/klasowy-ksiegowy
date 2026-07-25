@@ -202,7 +202,7 @@ export default function Ucznowie() {
   const [wplatyUczen, setWplatyUczen] = useState(null);
   const { confirm } = useDialog();
   const isKsiegowy = ['admin', 'ksiegowy'].includes(user?.rola);
-  const showWplaty = ['admin', 'podglad_pelny'].includes(user?.rola);
+  const showWplaty = ['admin', 'ksiegowy', 'podglad_pelny'].includes(user?.rola);
   const isPodglad = user?.rola === 'podglad';
 
   const [pokazNieaktywnych, setPokazNieaktywnych] = useState(false);
@@ -282,26 +282,26 @@ export default function Ucznowie() {
       ) : (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 divide-y divide-sage-50 dark:divide-gray-700">
           {ucznowie.map((u, i) => (
-            <div key={u.id} className={`flex items-center justify-between px-5 py-3.5 ${!u.aktywny ? 'opacity-50' : ''}`}>
-              <div className="flex items-center gap-3">
-                <span className="font-mono text-xs text-sage-400 w-6">{i + 1}.</span>
-                <span className={`font-body ${u.aktywny ? 'text-ink' : 'text-sage-400 line-through'}`}>{u.nazwisko} {u.imie}</span>
-                {!u.aktywny && <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Nieaktywny</span>}
+            <div key={u.id} className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 py-3 gap-2 ${!u.aktywny ? 'opacity-50' : ''}`}>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="font-mono text-xs text-sage-400 flex-shrink-0">{i + 1}.</span>
+                <span className={`font-body truncate ${u.aktywny ? 'text-ink dark:text-gray-100' : 'text-sage-400 line-through'}`}>{u.nazwisko} {u.imie}</span>
+                {!u.aktywny && <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 flex-shrink-0">Nieaktywny</span>}
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3 pl-5 sm:pl-0">
                 {showWplaty && (
                   <button onClick={() => setWplatyUczen(u)}
-                    className="text-xs font-body text-sage-600 hover:text-sage-700 underline">Wpłaty</button>
+                    className="text-xs font-body text-sage-600 hover:text-sage-700 underline py-1">Wpłaty</button>
                 )}
                 {isKsiegowy && (<>
                   <button onClick={() => setEditing(u)}
-                    className="text-xs font-body text-sage-600 hover:text-sage-700 underline">Edytuj</button>
+                    className="text-xs font-body text-sage-600 hover:text-sage-700 underline py-1">Edytuj</button>
                   <button onClick={() => handleToggleAktywny(u)}
-                    className={`text-xs font-body underline ${u.aktywny ? 'text-amber-500 hover:text-amber-600' : 'text-sage-500 hover:text-sage-700'}`}>
+                    className={`text-xs font-body underline py-1 ${u.aktywny ? 'text-amber-500 hover:text-amber-600' : 'text-sage-500 hover:text-sage-700'}`}>
                     {u.aktywny ? 'Dezaktywuj' : 'Przywróć'}
                   </button>
                   <button onClick={() => handleDelete(u.id)}
-                    className="text-xs font-body text-rose-400 hover:text-rose-500 underline">Usuń</button>
+                    className="text-xs font-body text-rose-400 hover:text-rose-500 underline py-1">Usuń</button>
                 </>)}
               </div>
             </div>

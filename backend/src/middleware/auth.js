@@ -51,3 +51,12 @@ export function requireKsiegowy(req, res, next) {
     next();
   });
 }
+
+export function requireKsiegowyOrPelny(req, res, next) {
+  requireAuth(req, res, () => {
+    if (!['admin', 'ksiegowy', 'podglad_pelny'].includes(req.user.rola)) {
+      return res.status(403).json({ error: 'Brak uprawnień' });
+    }
+    next();
+  });
+}

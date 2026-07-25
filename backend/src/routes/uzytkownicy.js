@@ -9,11 +9,33 @@ import jwt from 'jsonwebtoken';
 
 const router = Router();
 
+function formatTelefon(tel) {
+  if (!tel) return null;
+  const digits = tel.replace(/\D/g, '');
+  if (!digits) return null;
+  // Format: xxx xxx xxx (9 cyfr)
+  const fmt = digits.slice(0, 9).replace(/(\d{3})(\d{3})(\d{0,3})/, '$1 $2 $3').trim();
+  return fmt;
+}
+
+function walidujEmail(email) {
+  if (!email) return null;
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email) ? null : 'Nieprawidłowy format adresu email';
+}
+
+function walidujTelefon(tel) {
+  if (!tel) return null;
+  // Dozwolone: cyfry, spacje, +, -, (, )
+  const re = /^[0-9\s\+\-\(\)]{7,20}$/;
+  return re.test(tel) ? null : 'Nieprawidłowy format numeru telefonu (cyfry, spacje, +, -, nawiasy)';
+}
+
 // GET /uzytkownicy
 router.get('/', requireKsiegowy, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT u.id, u.login, u.imie, u.nazwisko, u.rola, u.uczen_id, u.email,
+      `SELECT u.id, u.login, u.imie, u.nazwisko, u.rola, u.uczen_id, u.email, u.telefon,
               u.mfa_enabled, u.mfa_wymuszone, u.force_password_change,
               uc.imie AS uczen_imie, uc.nazwisko AS uczen_nazwisko
        FROM uzytkownicy u
@@ -42,6 +64,12 @@ router.post('/', async (req, res) => {
 
     const haslo_hash = await hashHaslo(haslo);
 
+    // Walidacja formatu email i telefonu
+    const emailErr = walidujEmail(email);
+    if (emailErr) return res.status(400).json({ error: emailErr });
+    const telefonErr = walidujTelefon(req.body.telefon);
+    if (telefonErr) return res.status(400).json({ error: telefonErr });
+
     // Sprawdź unikalność loginu i emaila
     const conflict = await db.query(
       `SELECT login, email FROM uzytkownicy WHERE login=$1 OR (email=$2 AND email IS NOT NULL AND $2 != '')`,
@@ -54,10 +82,10 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko`,
-      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null]
+      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon`,
+      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon)]
     );
     await log({ uzytkownik_id: req.user?.id, ip: getIP(req), akcja: 'add_uzytkownik', zasob: req.originalUrl,
       szczegoly: `${login} | rola: ${rola}${imie || nazwisko ? ' | ' + [imie, nazwisko].filter(Boolean).join(' ') : ''}` });
@@ -73,7 +101,7 @@ router.post('/', async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   const { rola, email, uczen_id, imie, nazwisko } = req.body;
   try {
-    const stary = await db.query('SELECT login, rola, email, imie, nazwisko FROM uzytkownicy WHERE id=$1', [req.params.id]);
+    const stary = await db.query('SELECT login, rola, email, imie, nazwisko, telefon, uczen_id FROM uzytkownicy WHERE id=$1', [req.params.id]);
     const staryRow = stary.rows[0];
 
     // Rola podglad wymaga przypisanego ucznia
@@ -88,6 +116,16 @@ router.patch('/:id', requireAdmin, async (req, res) => {
       if (parseInt(adminCount.rows[0].count) <= 1) {
         return res.status(400).json({ error: 'Nie możesz zmienić roli — jesteś jedynym administratorem.' });
       }
+    }
+
+    // Walidacja formatu email i telefonu przy edycji
+    if (email) {
+      const emailErr = walidujEmail(email);
+      if (emailErr) return res.status(400).json({ error: emailErr });
+    }
+    if (req.body.telefon) {
+      const telefonErr = walidujTelefon(req.body.telefon);
+      if (telefonErr) return res.status(400).json({ error: telefonErr });
     }
 
     // Sprawdź czy email nie jest zajęty przez innego użytkownika
@@ -105,18 +143,22 @@ router.patch('/:id', requireAdmin, async (req, res) => {
         email = $2,
         uczen_id = $3,
         imie = $4,
-        nazwisko = $5
+        nazwisko = $5,
+        telefon = $7
        WHERE id = $6
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, mfa_enabled, mfa_wymuszone, force_password_change`,
-      [rola || null, email || null, uczen_id || null, imie || null, nazwisko || null, req.params.id]
+       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, mfa_enabled, mfa_wymuszone, force_password_change`,
+      [rola || null, email || null, uczen_id || null, imie || null, nazwisko || null, req.params.id, req.body.telefon !== undefined ? formatTelefon(req.body.telefon) : staryRow?.telefon || null]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
     const zmiany = [];
     if (staryRow) {
       if (rola && staryRow.rola !== rola) zmiany.push(`rola: ${staryRow.rola} → ${rola}`);
       if (staryRow.email !== (email || null)) zmiany.push(`email: ${staryRow.email || '—'} → ${email || '—'}`);
+      if (staryRow.telefon !== (req.body.telefon || null)) zmiany.push(`telefon: ${staryRow.telefon || '—'} → ${req.body.telefon || '—'}`);
       if (imie && staryRow.imie !== (imie || null)) zmiany.push(`imię: ${staryRow.imie || '—'} → ${imie}`);
       if (nazwisko && staryRow.nazwisko !== (nazwisko || null)) zmiany.push(`nazwisko: ${staryRow.nazwisko || '—'} → ${nazwisko}`);
+      const nowyUczen = uczen_id !== undefined ? (uczen_id || null) : staryRow.uczen_id;
+      if (staryRow.uczen_id !== nowyUczen) zmiany.push(`uczeń: ${staryRow.uczen_id || '—'} → ${nowyUczen || '—'}`);
     }
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'edit_uzytkownik', zasob: req.originalUrl,
       szczegoly: `${result.rows[0].login}${zmiany.length ? ' | ' + zmiany.join(', ') : ''}` });

@@ -19,7 +19,7 @@ router.get('/', requireAdmin, async (req, res) => {
       db.query('SELECT * FROM skladka_ucznowie'),
       db.query('SELECT * FROM wplaty ORDER BY created_at'),
       db.query('SELECT id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at FROM wyplaty ORDER BY created_at'),
-      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
     ]);
 
     const wyplaty = wyplatyRaw.rows.map(w => ({
@@ -91,14 +91,15 @@ router.post('/restore', requireAdmin, async (req, res) => {
     for (const r of uzytkownicy) {
       await client.query(
         `INSERT INTO uzytkownicy
-           (id, login, haslo_hash, imie, nazwisko, rola, email, uczen_id,
+           (id, login, haslo_hash, imie, nazwisko, rola, email, telefon, uczen_id,
             mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone,
             force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
          ON CONFLICT (id) DO UPDATE SET
            haslo_hash = EXCLUDED.haslo_hash,
            rola = EXCLUDED.rola,
            email = EXCLUDED.email,
+           telefon = EXCLUDED.telefon,
            imie = EXCLUDED.imie,
            nazwisko = EXCLUDED.nazwisko,
            mfa_secret = EXCLUDED.mfa_secret,
@@ -108,7 +109,7 @@ router.post('/restore', requireAdmin, async (req, res) => {
            force_password_change = EXCLUDED.force_password_change,
            awaiting_password_reset = EXCLUDED.awaiting_password_reset`,
         [r.id, r.login, r.haslo_hash, r.imie || null, r.nazwisko || null,
-         r.rola, r.email || null, r.uczen_id || null,
+         r.rola, r.email || null, r.telefon || null, r.uczen_id || null,
          r.mfa_secret || null, r.mfa_enabled || false,
          r.mfa_backup_codes || null, r.mfa_wymuszone || false,
          r.force_password_change || false, r.awaiting_password_reset || false,
@@ -137,11 +138,12 @@ router.get('/auto', requireAdmin, (req, res) => {
   try {
     if (!fs.existsSync(BACKUP_DIR)) return res.json([]);
     const files = fs.readdirSync(BACKUP_DIR)
-      .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
+      .filter(f => f.endsWith('.json'))
       .sort().reverse()
       .map(f => {
         const stat = fs.statSync(path.join(BACKUP_DIR, f));
-        return { nazwa: f, rozmiar: stat.size, created_at: stat.mtime };
+        const type = ['daily','weekly','monthly','yearly'].find(t => f.startsWith(`backup-${t}-`)) || 'daily';
+        return { nazwa: f, rozmiar: stat.size, created_at: stat.mtime, typ: type };
       });
     res.json(files);
   } catch (err) {
@@ -153,7 +155,7 @@ router.get('/auto', requireAdmin, (req, res) => {
 router.get('/auto/:nazwa', requireAdmin, (req, res) => {
   const nazwa = path.basename(req.params.nazwa); // zabezpieczenie przed path traversal
   const filepath = path.join(BACKUP_DIR, nazwa);
-  if (!fs.existsSync(filepath) || !nazwa.startsWith('backup-')) {
+  if (!fs.existsSync(filepath) || !nazwa.startsWith('backup-') || !nazwa.endsWith('.json')) {
     return res.status(404).json({ error: 'Nie znaleziono' });
   }
   res.setHeader('Content-Type', 'application/json');

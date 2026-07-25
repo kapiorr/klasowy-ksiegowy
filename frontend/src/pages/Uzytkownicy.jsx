@@ -15,7 +15,7 @@ const EXPIRY_OPTIONS = [
   { value: 10080,label: '7 dni' },
 ];
 function DodajModal({ ucznowie, onClose, onSave }) {
-  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', imie: '', nazwisko: '' });
+  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', telefon: '', imie: '', nazwisko: '' });
   const [wyslijMail, setWyslijMail] = useState(false);
   const [linkExpiry, setLinkExpiry] = useState(15);
   const [saving, setSaving] = useState(false);
@@ -26,6 +26,8 @@ function DodajModal({ ucznowie, onClose, onSave }) {
     if (wyslijMail && !form.email) { setErr('Podaj email aby wysłać zaproszenie'); setSaving(false); return; }
     if (!wyslijMail && form.haslo.length < 8) { setErr('Hasło min. 8 znaków'); setSaving(false); return; }
     if (form.rola === 'podglad' && !form.uczen_id) { setErr('Rola "Podgląd" wymaga przypisania ucznia'); setSaving(false); return; }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setErr('Nieprawidłowy format adresu email'); setSaving(false); return; }
+
     try { await onSave(form, wyslijMail, linkExpiry); onClose(); }
     catch (e) { setErr(e.message); }
     finally { setSaving(false); }
@@ -71,6 +73,20 @@ function DodajModal({ ucznowie, onClose, onSave }) {
               placeholder="opcjonalnie" />
           </div>
           <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Telefon <span className="text-sage-400 text-xs">(opcjonalny)</span></label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-body text-sage-500 select-none">+48</span>
+              <input type="tel" value={form.telefon} onChange={e => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+                  const fmt = digits.length > 6 ? digits.replace(/(\d{3})(\d{3})(\d{0,3})/, '$1 $2 $3').trim()
+                    : digits.length > 3 ? digits.replace(/(\d{3})(\d{0,3})/, '$1 $2').trim() : digits;
+                  setForm(f => ({ ...f, telefon: fmt }));
+                }}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl pl-14 pr-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
+                placeholder="600 123 456" maxLength={11} />
+            </div>
+          </div>
+          <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">Rola *</label>
             <select value={form.rola} onChange={e => setForm(f => ({ ...f, rola: e.target.value }))}
               className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600">
@@ -80,8 +96,7 @@ function DodajModal({ ucznowie, onClose, onSave }) {
               <option value="podglad">Podgląd (własny uczeń)</option>
             </select>
           </div>
-          {(form.rola === 'podglad' || form.rola === 'podglad_pelny') && (
-            <div>
+          <div>
               <label className="block font-body text-sm font-500 text-ink mb-1">
                 Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
               </label>
@@ -91,7 +106,6 @@ function DodajModal({ ucznowie, onClose, onSave }) {
                 {ucznowie.map(u => <option key={u.id} value={u.id}>{u.nazwisko} {u.imie}</option>)}
               </select>
             </div>
-          )}
           <label className="flex items-start gap-2 cursor-pointer">
             <input type="checkbox" checked={wyslijMail} onChange={e => setWyslijMail(e.target.checked)}
               className="mt-0.5 rounded border-sage-300" />
@@ -128,6 +142,7 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
   const [form, setForm] = useState({
     rola: user.rola,
     email: user.email || '',
+    telefon: user.telefon || '',
     uczen_id: user.uczen_id || '',
     imie: user.imie || '',
     nazwisko: user.nazwisko || '',
@@ -178,8 +193,21 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
               className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
               placeholder="opcjonalnie" />
           </div>
-          {(form.rola === 'podglad' || form.rola === 'podglad_pelny') && (
-            <div>
+          <div>
+            <label className="block font-body text-sm font-500 text-ink mb-1">Telefon <span className="text-sage-400 text-xs">(opcjonalny)</span></label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-body text-sage-500 select-none">+48</span>
+              <input type="tel" value={form.telefon || ''} onChange={e => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+                  const fmt = digits.length > 6 ? digits.replace(/(\d{3})(\d{3})(\d{0,3})/, '$1 $2 $3').trim()
+                    : digits.length > 3 ? digits.replace(/(\d{3})(\d{0,3})/, '$1 $2').trim() : digits;
+                  setForm(f => ({ ...f, telefon: fmt }));
+                }}
+                className="w-full border border-sage-200 dark:border-gray-600 rounded-xl pl-14 pr-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600"
+                placeholder="600 123 456" maxLength={11} />
+            </div>
+          </div>
+          <div>
               <label className="block font-body text-sm font-500 text-ink mb-1">
                 Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
               </label>
@@ -189,7 +217,6 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
                 {ucznowie.map(u => <option key={u.id} value={u.id}>{u.nazwisko} {u.imie}</option>)}
               </select>
             </div>
-          )}
           {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
@@ -437,6 +464,7 @@ export default function Uzytkownicy() {
                   {u.force_password_change && <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">Zmiana hasła ⚠</span>}
                 </div>
                 {u.email && <div className="font-body text-xs text-sage-400 mt-0.5">{u.email}</div>}
+                {u.telefon && <div className="font-body text-xs text-sage-400">+48 {u.telefon}</div>}
                 {u.uczen_imie && <div className="font-body text-xs text-sage-400 mt-0.5">↳ {u.uczen_imie} {u.uczen_nazwisko}</div>}
               </div>
               {isAdmin && (

@@ -3,7 +3,19 @@ import path from 'path';
 import db from './db.js';
 
 const BACKUP_DIR = '/app/backups';
-const MAX_BACKUPS = 7;
+
+// Poziomy retencji:
+// daily   — codzienne, trzymane 7 dni
+// weekly  — tygodniowe (poniedziałek), trzymane 26 tygodni (6 mies.)
+// monthly — miesięczne (1. dzień miesiąca), trzymane 12 miesięcy
+// yearly  — roczne (1 stycznia), trzymane 8 lat
+
+const RETENTION = {
+  daily:   7,
+  weekly:  26,
+  monthly: 12,
+  yearly:  8,
+};
 
 async function generateBackup() {
   const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy] = await Promise.all([
@@ -12,7 +24,7 @@ async function generateBackup() {
     db.query('SELECT * FROM skladka_ucznowie'),
     db.query('SELECT * FROM wplaty ORDER BY created_at'),
     db.query('SELECT id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at FROM wyplaty ORDER BY created_at'),
-    db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+    db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
   ]);
 
   const wyplaty = wyplatyRaw.rows.map(w => ({
@@ -34,34 +46,58 @@ async function generateBackup() {
   };
 }
 
-function cleanOldBackups() {
-  if (!fs.existsSync(BACKUP_DIR)) return;
-  const files = fs.readdirSync(BACKUP_DIR)
-    .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
-    .sort() // sortowanie alfabetyczne = chronologiczne dla formatu backup-YYYY-MM-DD
-    .reverse(); // najnowsze pierwsze
+// Zwraca typ backupu dla danej daty
+function backupType(now) {
+  const d = now.getDate();
+  const m = now.getMonth(); // 0=styczeń
+  const dow = now.getDay(); // 0=niedziela, 1=poniedziałek
 
-  // Usuń stare powyżej limitu
-  const toDelete = files.slice(MAX_BACKUPS);
-  toDelete.forEach(f => {
-    fs.unlinkSync(path.join(BACKUP_DIR, f));
-    console.log(`Usunieto stary backup: ${f}`);
-  });
+  if (d === 1 && m === 0) return 'yearly';   // 1 stycznia
+  if (d === 1)            return 'monthly';  // 1. dzień miesiąca
+  if (dow === 1)          return 'weekly';   // poniedziałek
+  return 'daily';
 }
 
-async function runBackup() {
+function cleanOldBackups() {
+  if (!fs.existsSync(BACKUP_DIR)) return;
+  const all = fs.readdirSync(BACKUP_DIR).filter(f => f.endsWith('.json'));
+
+  for (const [type, keep] of Object.entries(RETENTION)) {
+    const prefix = `backup-${type}-`;
+    const files = all
+      .filter(f => f.startsWith(prefix))
+      .sort()
+      .reverse(); // najnowsze pierwsze
+
+    const toDelete = files.slice(keep);
+    toDelete.forEach(f => {
+      fs.unlinkSync(path.join(BACKUP_DIR, f));
+      console.log(`Usunieto stary backup (${type}): ${f}`);
+    });
+  }
+
+  // Usuń stare backupy bez prefiksu typu (format sprzed migracji)
+  all
+    .filter(f => f.startsWith('backup-') && !Object.keys(RETENTION).some(t => f.startsWith(`backup-${t}-`)))
+    .forEach(f => {
+      fs.unlinkSync(path.join(BACKUP_DIR, f));
+      console.log(`Usunieto stary backup (legacy): ${f}`);
+    });
+}
+
+export async function runBackup(now = new Date()) {
   try {
     if (!fs.existsSync(BACKUP_DIR)) {
       fs.mkdirSync(BACKUP_DIR, { recursive: true });
     }
 
-    const now = new Date();
+    const type = backupType(now);
     const datestamp = now.toISOString().replace(/T.*/, ''); // YYYY-MM-DD
     const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
-    const filename = `backup-${datestamp}_${timestamp}.json`;
+    const filename = `backup-${type}-${datestamp}_${timestamp}.json`;
     const filepath = path.join(BACKUP_DIR, filename);
 
-    console.log(`Generowanie backupu: ${filename}`);
+    console.log(`Generowanie backupu (${type}): ${filename}`);
     const backup = await generateBackup();
     fs.writeFileSync(filepath, JSON.stringify(backup));
     console.log(`Backup zapisany: ${filepath} (${(fs.statSync(filepath).size / 1024).toFixed(1)} KB)`);
@@ -85,12 +121,10 @@ function scheduleDaily() {
 
   setTimeout(() => {
     runBackup();
-    setInterval(runBackup, 24 * 60 * 60 * 1000); // co 24h
+    setInterval(runBackup, 24 * 60 * 60 * 1000);
   }, delay);
 }
 
 export function startScheduler() {
   scheduleDaily();
 }
-
-export { runBackup };

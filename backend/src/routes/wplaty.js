@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db.js';
-import { requireAuth, requireKsiegowy } from '../middleware/auth.js';
+import { requireAuth, requireKsiegowy, requireKsiegowyOrPelny } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
 
 const router = Router();
@@ -152,8 +152,8 @@ router.get('/moje', requireAuth, async (req, res) => {
   }
 });
 
-// GET /wplaty/uczen/:id — wszystkie wpłaty ucznia ze wszystkich składek (admin/ksiegowy)
-router.get('/uczen/:id', requireKsiegowy, async (req, res) => {
+// GET /wplaty/uczen/:id — wszystkie wpłaty ucznia ze wszystkich składek (admin/ksiegowy/podglad_pelny)
+router.get('/uczen/:id', requireKsiegowyOrPelny, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT

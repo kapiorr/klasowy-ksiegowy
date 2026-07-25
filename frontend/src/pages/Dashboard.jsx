@@ -66,8 +66,8 @@ export default function Dashboard() {
   const [appConfig, setAppConfig] = useState({});
   const [loading, setLoading] = useState(true);
 
-  const isPodglad = ['podglad', 'podglad_pelny'].includes(user?.rola) && user?.uczen_id;
-  const showTwojeWplaty = ['podglad', 'podglad_pelny'].includes(user?.rola) && user?.uczen_id;
+  const isPodglad = ['podglad', 'podglad_pelny', 'ksiegowy'].includes(user?.rola) && user?.uczen_id;
+  const showTwojeWplaty = ['podglad', 'podglad_pelny', 'ksiegowy'].includes(user?.rola) && user?.uczen_id;
 
   useEffect(() => {
     Promise.all([api.getSkladki(), getAppConfig()]).then(([s, cfg]) => {
@@ -80,7 +80,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!showTwojeWplaty) return;
     api.getMojeWplaty().then(setHistoriaWplat).catch(() => {});
-  }, [showTwojeWplaty]);
+  }, [user?.rola, user?.uczen_id]);
 
   // Dla podglądu z przypisanym uczniem — pobierz stan wpłat ucznia z aktywnych składek
   useEffect(() => {

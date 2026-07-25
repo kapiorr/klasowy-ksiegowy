@@ -27,7 +27,8 @@ export default function Layout() {
     <>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ to, label, icon, exact }) => {
-          if (to === '/skladki' && user?.rola === 'podglad') return null;
+          // Rola podglad widzi tylko Dashboard i Uczniowie
+          if (user?.rola === 'podglad' && ![`/`, '/ucznowie'].includes(to)) return null;
           return (
             <NavLink key={to} to={to} end={exact} className={linkCls} onClick={close}>
               <span className="text-base">{icon}</span>{label}

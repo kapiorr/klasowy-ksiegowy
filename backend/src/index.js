@@ -116,6 +116,7 @@ async function migrate() {
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_backup_codes TEXT[]`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_wymuszone BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS email VARCHAR(200)`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS telefon VARCHAR(30)`,
     `DO $$ BEGIN
        IF NOT EXISTS (
          SELECT 1 FROM pg_constraint WHERE conname = 'uzytkownicy_email_unique'

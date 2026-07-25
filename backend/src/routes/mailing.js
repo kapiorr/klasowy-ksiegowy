@@ -26,7 +26,7 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
       LEFT JOIN wplaty w ON w.skladka_id = su.skladka_id AND w.uczen_id = su.uczen_id
       WHERE su.skladka_id = $1
         AND uz.email IS NOT NULL
-        AND uz.rola IN ('podglad', 'podglad_pelny')
+        AND uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
       GROUP BY u.imie, u.nazwisko, uz.email, uz.login, s.kwota_na_osobe
     `, [req.params.id]);
 
@@ -63,7 +63,7 @@ router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
       LEFT JOIN wplaty w ON w.skladka_id = su.skladka_id AND w.uczen_id = su.uczen_id
       WHERE su.skladka_id = $1
         AND uz.email IS NOT NULL
-        AND uz.rola IN ('podglad', 'podglad_pelny')
+        AND uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
       GROUP BY u.imie, u.nazwisko, uz.email, uz.login
     `, [req.params.id]);
 
@@ -124,7 +124,7 @@ router.get('/zaleglosci/podglad', requireKsiegowy, async (req, res) => {
         SELECT uczen_id, skladka_id, SUM(kwota) AS zaplacono
         FROM wplaty GROUP BY uczen_id, skladka_id
       ) wp ON wp.uczen_id = su.uczen_id AND wp.skladka_id = su.skladka_id
-      WHERE uz.rola IN ('podglad', 'podglad_pelny')
+      WHERE uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
         AND uz.email IS NOT NULL
         AND s.status = 'aktywna'
       GROUP BY uz.id, uz.login, uz.email, u.imie, u.nazwisko
@@ -159,7 +159,7 @@ router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
         SELECT uczen_id, skladka_id, SUM(kwota) AS zaplacono
         FROM wplaty GROUP BY uczen_id, skladka_id
       ) wp ON wp.uczen_id = su.uczen_id AND wp.skladka_id = su.skladka_id
-      WHERE uz.rola IN ('podglad', 'podglad_pelny')
+      WHERE uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
         AND uz.email IS NOT NULL
         AND s.status = 'aktywna'
         AND s.kwota_na_osobe - COALESCE(wp.zaplacono, 0) > 0

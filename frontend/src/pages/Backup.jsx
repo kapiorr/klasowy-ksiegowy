@@ -91,6 +91,13 @@ function AutoBackupy() {
     }
   };
 
+  const TYP_LABEL = {
+    daily:   { label: 'Dzienny',    cls: 'bg-sage-50 text-sage-600 dark:bg-sage-900/30 dark:text-sage-400' },
+    weekly:  { label: 'Tygodniowy', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' },
+    monthly: { label: 'Miesięczny', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' },
+    yearly:  { label: 'Roczny',     cls: 'bg-rose-50 text-rose-500 dark:bg-rose-900/30 dark:text-rose-400' },
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
       <div>
@@ -102,48 +109,57 @@ function AutoBackupy() {
               {running ? '⏳ Trwa...' : '▶ Wykonaj teraz'}
             </button>
           </div>
-          <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-4">
-            Codziennie o {backupHour}:00 — przechowywane 7 ostatnich kopii.
+          <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-1">
+            Codziennie o {backupHour}:00
+          </p>
+          <p className="font-body text-xs text-sage-400 dark:text-sage-500 mb-4">
+            Dzienny: 7 dni &nbsp;·&nbsp; Tygodniowy: 6 miesięcy &nbsp;·&nbsp; Miesięczny: 12 miesięcy &nbsp;·&nbsp; Roczny: 8 lat
           </p>
           {msg && <div className="font-body text-sm text-sage-700 dark:text-sage-400 bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2 mb-3">{msg}</div>}
           {loading ? (
             <div className="font-body text-sm text-sage-400">Ładowanie...</div>
           ) : lista.length === 0 ? (
-            <div className="font-body text-sm text-sage-400">Brak zapisanych backupów — pierwszy zostanie wykonany dziś o 5:00.</div>
+            <div className="font-body text-sm text-sage-400">Brak zapisanych backupów — pierwszy zostanie wykonany dziś o {backupHour}:00.</div>
           ) : (
             <div className="divide-y divide-sage-50 dark:divide-gray-700 border border-sage-100 dark:border-gray-700 rounded-xl overflow-hidden">
-              {lista.map(b => (
-                <div key={b.nazwa} className="flex items-center justify-between px-4 py-3 gap-4 hover:bg-sage-50/50 dark:hover:bg-gray-700/50">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-body text-sm font-500 text-ink dark:text-gray-100">{new Date(b.created_at).toLocaleString('pl-PL')}</div>
-                    <div className="font-body text-xs text-sage-400">{(b.rozmiar / 1024).toFixed(1)} KB</div>
+              {lista.map(b => {
+                const typInfo = TYP_LABEL[b.typ] || TYP_LABEL.daily;
+                return (
+                  <div key={b.nazwa} className="flex items-center justify-between px-4 py-3 gap-4 hover:bg-sage-50/50 dark:hover:bg-gray-700/50">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className={`font-mono text-xs px-2 py-0.5 rounded-full font-600 ${typInfo.cls}`}>{typInfo.label}</span>
+                        <span className="font-body text-sm font-500 text-ink dark:text-gray-100">{new Date(b.created_at).toLocaleString('pl-PL')}</span>
+                      </div>
+                      <div className="font-body text-xs text-sage-400">{(b.rozmiar / 1024).toFixed(1)} KB</div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={() => downloadAutoBackup(b.nazwa)}
+                        className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1 rounded-lg hover:bg-sage-50">
+                        ⬇ Pobierz
+                      </button>
+                      <button onClick={async () => {
+                          if (!await confirm(`Przywrócić backup "${b.nazwa}"? Istniejące dane zostaną nadpisane.`)) return;
+                          try {
+                            const token = localStorage.getItem('token');
+                            const fileRes = await fetch(`/api/backup/auto/${b.nazwa}`, { headers: { Authorization: `Bearer ${token}` } });
+                            const data = await fileRes.json();
+                            const restoreRes = await fetch('/api/backup/restore', {
+                              method: 'POST',
+                              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                              body: JSON.stringify(data),
+                            });
+                            if (!restoreRes.ok) throw new Error((await restoreRes.json()).error);
+                            setMsg(`Przywrócono backup: ${b.nazwa}`);
+                          } catch (e) { setMsg('Błąd: ' + e.message); }
+                        }}
+                        className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
+                        ↩ Przywróć
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button onClick={() => downloadAutoBackup(b.nazwa)}
-                      className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1 rounded-lg hover:bg-sage-50">
-                      ⬇ Pobierz
-                    </button>
-                    <button onClick={async () => {
-                        if (!await confirm(`Przywrócić backup "${b.nazwa}"? Istniejące dane zostaną nadpisane.`)) return;
-                        try {
-                          const token = localStorage.getItem('token');
-                          const fileRes = await fetch(`/api/backup/auto/${b.nazwa}`, { headers: { Authorization: `Bearer ${token}` } });
-                          const data = await fileRes.json();
-                          const restoreRes = await fetch('/api/backup/restore', {
-                            method: 'POST',
-                            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data),
-                          });
-                          if (!restoreRes.ok) throw new Error((await restoreRes.json()).error);
-                          setMsg(`Przywrócono backup: ${b.nazwa}`);
-                        } catch (e) { setMsg('Błąd: ' + e.message); }
-                      }}
-                      className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
-                      ↩ Przywróć
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -153,6 +169,7 @@ function AutoBackupy() {
 }
 
 export default function Backup() {
+  const { alert } = useDialog();
   const [restoreState, setRestoreState] = useState('idle'); // idle | confirm | loading | done | error
   const [restoreMsg, setRestoreMsg] = useState('');
   const [plik, setPlik] = useState(null);
@@ -162,7 +179,7 @@ export default function Backup() {
   const handleDownload = async () => {
     setDownloading(true);
     try { await downloadBackup(); }
-    catch (e) { alert('Błąd eksportu: ' + e.message); }
+    catch (e) { await alert('Błąd eksportu: ' + e.message, 'error'); }
     finally { setDownloading(false); }
   };
 
