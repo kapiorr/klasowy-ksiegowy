@@ -18,7 +18,7 @@ function appInfo(html = false) {
   if (cls && school) return `Klasa ${cls}${sep}${school}`;
   if (cls) return `Klasa ${cls}`;
   if (school) return school;
-  return 'Klasowy Ksiegowy';
+  return 'Klasowy Księgowy';
 }
 
 function layout(title, body, color = '#4a8c4a') {
@@ -154,7 +154,7 @@ export async function sendZaleglosci(email, uczenImie, zaleglosci) {
     <table style="width:100%;border-collapse:collapse;margin:16px 0;border-radius:8px;overflow:hidden;border:1px solid #eee;">
       <thead>
         <tr style="background:#f5f3ee;">
-          <th style="padding:10px 12px;text-align:left;font-size:13px;color:#666;">Skladka</th>
+          <th style="padding:10px 12px;text-align:left;font-size:13px;color:#666;">Składka</th>
           <th style="padding:10px 12px;text-align:right;font-size:13px;color:#666;">Pozostało</th>
         </tr>
       </thead>
