@@ -64,9 +64,9 @@ export async function sendResetEmail(email, token) {
   const url = `${process.env.APP_URL}/reset-hasla?token=${token}`;
   const body = `
     <p>Otrzymalismy prosbe o reset hasla do Twojego konta.</p>
-    <p>Kliknij przycisk ponizej aby ustawic nowe haslo. Link jest wazny przez <strong>1 godzine</strong>.</p>
+    <p>Kliknij przycisk poniźej aby ustawić nowe hasło. Link jest ważny przez <strong>1 godzine</strong>.</p>
     ${btn(url, 'Ustaw nowe haslo')}
-    <p style="color:#999;font-size:12px;">Jesli nie prosiles o reset hasla, zignoruj te wiadomosc.</p>
+    <p style="color:#999;font-size:12px;">Jesli nie prosiłeś o reset hasła, zignoruj te wiadomość.</p>
     <p style="color:#ccc;font-size:11px;word-break:break-all;">${url}</p>
   `;
   await getTransport().sendMail({
@@ -123,7 +123,7 @@ export async function sendNowaSkladka(email, uczenImie, skladkaNazwa, kwota, ter
   const terminTxt = termin ? `<p>Termin platnosci: <strong>${new Date(termin).toLocaleDateString('pl-PL')}</strong></p>` : '';
   const opisTxt = opis ? `<p style="color:#555;font-size:14px;margin-top:8px;">${opis}</p>` : '';
   const body = `
-    <p>Zostala zalożona nowa składka dla <strong>${uczenImie}</strong>.</p>
+    <p>Została założona nowa składka dla <strong>${uczenImie}</strong>.</p>
     <div style="background:#f0f7f0;border-radius:10px;padding:16px 20px;margin:16px 0;">
       <div style="font-size:16px;font-weight:600;color:#0f1117;">${skladkaNazwa}</div>
       ${opisTxt}
@@ -135,8 +135,8 @@ export async function sendNowaSkladka(email, uczenImie, skladkaNazwa, kwota, ter
   await getTransport().sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: `Nowa skladka: ${skladkaNazwa} — ${appInfo()}`,
-    html: layout('Nowa skladka', body),
+    subject: `Nowa składka: ${skladkaNazwa} — ${appInfo()}`,
+    html: layout('Nowa składka', body),
   });
 }
 
@@ -150,18 +150,18 @@ export async function sendZaleglosci(email, uczenImie, zaleglosci) {
     </tr>
   `).join('');
   const body = `
-    <p>Przypominamy o zaległosciach w platnosiciach dla <strong>${uczenImie}</strong>.</p>
+    <p>Przypominamy o zaległościach w platnościach dla <strong>${uczenImie}</strong>.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;border-radius:8px;overflow:hidden;border:1px solid #eee;">
       <thead>
         <tr style="background:#f5f3ee;">
           <th style="padding:10px 12px;text-align:left;font-size:13px;color:#666;">Skladka</th>
-          <th style="padding:10px 12px;text-align:right;font-size:13px;color:#666;">Pozostalo</th>
+          <th style="padding:10px 12px;text-align:right;font-size:13px;color:#666;">Pozostało</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
       <tfoot>
         <tr style="background:#fff3e0;">
-          <td style="padding:10px 12px;font-weight:700;">Razem do zaplaty</td>
+          <td style="padding:10px 12px;font-weight:700;">Razem do zapłaty</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c05a00;font-size:16px;">${PLN(suma)}</td>
         </tr>
       </tfoot>
@@ -171,7 +171,7 @@ export async function sendZaleglosci(email, uczenImie, zaleglosci) {
   await getTransport().sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: `Przypomnienie o zaleglosiciach — ${appInfo()}`,
-    html: layout('Przypomnienie o zaleglosiciach', body, '#c05a00'),
+    subject: `Przypomnienie o zaleglościach — ${appInfo()}`,
+    html: layout('Przypomnienie o zaległościach', body, '#c05a00'),
   });
 }
