@@ -2,65 +2,40 @@ import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, downloadRaportSkladkiPdf, mailingSkladka, mailingPodglad } from '../api.js';
 import { useDialog } from '../components/Dialog.jsx';
+import DateInput from '../components/DateInput.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Podgląd załącznika z dymkiem ────────────────────────────────────────────
-function ZalacznikPreview({ wyplataId, nazwa, typ }) {
-  const [blobUrl, setBlobUrl] = useState(null);
-  const [loading, setLoading] = useState(false);
+function ZalacznikItem({ wyplataId, z }) {
+  const [url, setUrl] = useState(null);
   const [show, setShow] = useState(false);
-  const isImage = typ && typ.startsWith('image/');
+  const isImage = z.typ?.startsWith('image/');
 
-  const prefetch = async () => {
-    if (!isImage || blobUrl) return;
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/wyplaty/${wyplataId}/zalacznik`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        setBlobUrl(URL.createObjectURL(blob));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const open = () => api.openZalacznik(wyplataId);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`/api/wyplaty/${wyplataId}/zalacznik/${z.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.blob()).then(b => setUrl(URL.createObjectURL(b))).catch(() => {});
+  }, [wyplataId, z.id, z.legacy]);
 
   return (
-    <div className="relative inline-block">
-      <button
-        onClick={open}
-        onMouseEnter={() => { setShow(true); prefetch(); }}
-        onMouseLeave={() => setShow(false)}
-        className="font-body text-xs text-sage-600 underline hover:text-sage-700 block text-left"
-      >
-        📎 {nazwa}
-      </button>
-
-      {show && isImage && (
+    <div className="relative inline-block mt-1"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}>
+      {url
+        ? <a href={url} target="_blank" rel="noopener noreferrer"
+            className="font-body text-xs text-sage-600 underline hover:text-sage-700 block">
+            📎 {z.nazwa}
+          </a>
+        : <span className="font-body text-xs text-sage-400">📎 {z.nazwa}</span>
+      }
+      {show && isImage && url && (
         <div className="absolute bottom-full left-0 mb-2 z-50 pointer-events-none">
           <div className="bg-white border border-sage-200 rounded-xl shadow-xl p-1.5" style={{ width: '200px' }}>
-            {loading && (
-              <div className="w-full h-32 flex items-center justify-center text-sage-400 text-xs font-body">
-                Ładowanie...
-              </div>
-            )}
-            {blobUrl && (
-              <img
-                src={blobUrl}
-                alt={nazwa}
-                className="w-full rounded-lg object-contain max-h-48"
-              />
-            )}
-            <div className="text-xs text-sage-400 font-body mt-1 px-1 truncate">{nazwa}</div>
+            <img src={url} alt={z.nazwa} className="w-full rounded-lg object-contain max-h-48" />
+            <div className="text-xs text-sage-400 font-body mt-1 px-1 truncate">{z.nazwa}</div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
@@ -214,8 +189,7 @@ function WplataModal({ uczen, wplataEdit, skladkaId, onClose, onSave }) {
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">Data</label>
-            <input type="date" value={data} onChange={e => setData(e.target.value)}
-              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            <DateInput value={data} onChange={setData} />
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">Opis / notatka</label>
@@ -293,78 +267,59 @@ function HistoriaDrawer({ uczen, skladkaId, onClose, onEdytuj, onUsun, onDodaj }
 }
 
 // ── Modal wypłaty ────────────────────────────────────────────────────────────
-function WyplataModal({ skladkaId, wyplataEdit, onClose, onSave }) {
+function WyplataModal({ skladkaId, wyplataEdit, onClose, onSave, onDeleteZalacznik }) {
   const [kwota, setKwota] = useState(wyplataEdit ? String(wyplataEdit.kwota) : '');
   const [opis, setOpis] = useState(wyplataEdit ? wyplataEdit.opis || '' : '');
   const [data, setData] = useState(wyplataEdit ? (wyplataEdit.data || '').split('T')[0] : new Date().toISOString().split('T')[0]);
-  const [plik, setPlik] = useState(null);
-  const [usunZalacznik, setUsunZalacznik] = useState(false);
+  const [pliki, setPliki] = useState([]);
+  const [istniejace, setIstniejace] = useState(wyplataEdit?.zalaczniki || []); // nowe pliki do dodania
   const [plikLoading, setPlikLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
-  const MAX_IMG_PX = 1920;   // max szerokość/wysokość po skalowaniu
-  const MAX_FILE_MB = 10;    // limit przed skalowaniem (obrazki będą zmniejszone)
+  const MAX_IMG_PX = 1024;
+  const MAX_FILE_MB = 10;
 
-  const handleFile = async (e) => {
-    const f = e.target.files[0];
-    if (!f) return;
-    setErr('');
-    setPlikLoading(true);
-
-    // PDF — bez skalowania, tylko limit 5 MB
+  const processFile = async (f) => {
     if (f.type === 'application/pdf') {
-      if (f.size > 5 * 1024 * 1024) { setErr('PDF max 5 MB'); setPlikLoading(false); return; }
+      if (f.size > 5 * 1024 * 1024) { setErr('PDF max 5 MB'); return null; }
       const reader = new FileReader();
-      reader.onload = () => { setPlik({ nazwa: f.name, typ: f.type, dane: reader.result.split(',')[1], rozmiar: f.size }); setPlikLoading(false); };
-      reader.readAsDataURL(f);
-      return;
+      return new Promise(res => {
+        reader.onload = () => res({ nazwa: f.name, typ: f.type, dane: reader.result.split(',')[1], rozmiar: f.size, orygRozmiar: f.size, przeskalowany: false });
+        reader.readAsDataURL(f);
+      });
     }
-
-    // Obrazek — sprawdź limit przed skalowaniem
-    if (f.size > MAX_FILE_MB * 1024 * 1024) { setErr(`Plik max ${MAX_FILE_MB} MB`); setPlikLoading(false); return; }
-
-    // Wczytaj i przeskaluj przez canvas
-    const dataUrl = await new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(r.result);
-      r.onerror = rej;
-      r.readAsDataURL(f);
-    });
-
-    const img = await new Promise((res, rej) => {
-      const i = new Image();
-      i.onload = () => res(i);
-      i.onerror = rej;
-      i.src = dataUrl;
-    });
-
+    if (f.size > MAX_FILE_MB * 1024 * 1024) { setErr(`Plik max ${MAX_FILE_MB} MB`); return null; }
+    const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataUrl; });
     const skala = Math.min(1, MAX_IMG_PX / Math.max(img.width, img.height));
-    const w = Math.round(img.width * skala);
-    const h = Math.round(img.height * skala);
-
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
+    canvas.width = Math.round(img.width * skala);
+    canvas.height = Math.round(img.height * skala);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const outType = 'image/webp';
+    const dane = canvas.toDataURL(outType, 0.80).split(',')[1];
+    const rozmiar = Math.round(atob(dane).length);
+    return { nazwa: f.name, typ: outType, dane, rozmiar, orygRozmiar: f.size, przeskalowany: skala < 1 };
+  };
 
-    // Konwertuj do JPEG jeśli to nie PNG z przezroczystością
-    const outType = f.type === 'image/png' ? 'image/png' : 'image/jpeg';
-    const outData = canvas.toDataURL(outType, 0.85).split(',')[1];
-    const outSize = Math.round(atob(outData).length);
-
-    setPlik({ nazwa: f.name, typ: outType, dane: outData, rozmiar: outSize, oryg: f.size, przeskalowany: skala < 1 });
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setErr(''); setPlikLoading(true);
+    const wyniki = await Promise.all(files.map(processFile));
+    setPliki(prev => [...prev, ...wyniki.filter(Boolean)]);
     setPlikLoading(false);
+    e.target.value = '';
   };
 
   const submit = async (e) => {
     e.preventDefault(); setSaving(true); setErr('');
     try {
       if (wyplataEdit) {
-        await onSave({ id: wyplataEdit.id, kwota, opis, data, zalacznik: plik, usun_zalacznik: usunZalacznik });
+        await onSave({ id: wyplataEdit.id, kwota, opis, data, zalaczniki: pliki });
       } else {
-        await onSave({ skladka_id: skladkaId, kwota, opis, data, zalacznik: plik });
+        await onSave({ skladka_id: skladkaId, kwota, opis, data, zalaczniki: pliki });
       }
       onClose();
     }
@@ -375,7 +330,7 @@ function WyplataModal({ skladkaId, wyplataEdit, onClose, onSave }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm shadow-xl">
-        <div className="p-5 border-b border-sage-100 dark:border-gray-700 dark:border-gray-700">
+        <div className="p-5 border-b border-sage-100 dark:border-gray-700">
           <h3 className="font-display font-700 text-ink dark:text-gray-100">{wyplataEdit ? 'Edytuj wypłatę' : 'Dodaj wypłatę'}</h3>
         </div>
         <form onSubmit={submit} className="p-5 space-y-4">
@@ -392,41 +347,45 @@ function WyplataModal({ skladkaId, wyplataEdit, onClose, onSave }) {
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">Data</label>
-            <input type="date" value={data} onChange={e => setData(e.target.value)}
-              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            <DateInput value={data} onChange={setData} />
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">
-              Załącznik
-              <span className="font-normal text-sage-400 ml-1">(obrazki auto-skalowane do 1920px, PDF max 5 MB)</span>
+              Załączniki
+              <span className="font-normal text-sage-400 ml-1">(obrazki skalowane do 1024px, WebP, PDF max 5 MB)</span>
             </label>
-            {wyplataEdit?.zalacznik_nazwa && !usunZalacznik && !plik && (
-              <div className="flex items-center justify-between bg-sage-50 rounded-xl px-3 py-2 mb-2">
-                <span className="font-body text-xs text-sage-600 dark:text-sage-400 dark:text-gray-500">📎 {wyplataEdit.zalacznik_nazwa}</span>
-                <button type="button" onClick={() => setUsunZalacznik(true)}
-                  className="text-xs text-rose-400 hover:text-rose-500 font-body underline ml-2">Usuń</button>
+            {istniejace.length > 0 && (
+              <div className="mb-2 space-y-1">
+                {istniejace.map(z => (
+                  <div key={z.id} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-lg px-3 py-1.5">
+                    <span className="font-body text-xs text-sage-700 dark:text-gray-300 truncate">📎 {z.nazwa}</span>
+                    <button type="button" onClick={async () => {
+                        await onDeleteZalacznik(wyplataEdit.id, z.id);
+                        setIstniejace(prev => prev.filter(x => x.id !== z.id));
+                      }}
+                      className="text-rose-400 hover:text-rose-500 text-xs ml-2 flex-shrink-0">✕ Usuń</button>
+                  </div>
+                ))}
               </div>
             )}
-            {usunZalacznik && (
-              <div className="text-xs text-rose-400 font-body mb-2">
-                Załącznik zostanie usunięty.{' '}
-                <button type="button" onClick={() => setUsunZalacznik(false)} className="underline">Cofnij</button>
-              </div>
-            )}
-            <input type="file" onChange={handleFile} accept="image/*,application/pdf"
+            <input type="file" multiple onChange={handleFiles} accept="image/*,application/pdf"
               className="w-full text-sm font-body text-sage-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sage-100 file:text-sage-700 hover:file:bg-sage-200" />
-            {plikLoading && (
-              <div className="text-xs text-sage-400 mt-1 font-body">⏳ Przetwarzanie obrazka...</div>
-            )}
-            {plik && !plikLoading && (
-              <div className="text-xs text-sage-500 mt-1 space-y-0.5">
-                <div>✓ {plik.nazwa}</div>
-                {plik.przeskalowany
-                  ? <div className="text-sage-400 dark:text-gray-500">
-                      Zmniejszono: {(plik.oryg / 1024).toFixed(0)} KB → {(plik.rozmiar / 1024).toFixed(0)} KB
+            {plikLoading && <div className="text-xs text-sage-400 mt-1 font-body">⏳ Przetwarzanie...</div>}
+            {pliki.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {pliki.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-lg px-3 py-1.5">
+                    <div className="min-w-0">
+                      <span className="font-body text-xs text-sage-700 dark:text-gray-300 truncate block">📎 {p.nazwa}</span>
+                      {p.przeskalowany
+                        ? <span className="font-body text-xs text-sage-400">Zmniejszono: {(p.orygRozmiar/1024).toFixed(0)} KB → {(p.rozmiar/1024).toFixed(0)} KB</span>
+                        : <span className="font-body text-xs text-sage-400">{(p.rozmiar/1024).toFixed(0)} KB</span>
+                      }
                     </div>
-                  : <div className="text-sage-400 dark:text-gray-500">{(plik.rozmiar / 1024).toFixed(0)} KB</div>
-                }
+                    <button type="button" onClick={() => setPliki(prev => prev.filter((_, j) => j !== i))}
+                      className="text-rose-400 hover:text-rose-500 ml-2 flex-shrink-0">✕</button>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -441,7 +400,6 @@ function WyplataModal({ skladkaId, wyplataEdit, onClose, onSave }) {
           </div>
         </form>
       </div>
-
     </div>
   );
 }
@@ -499,7 +457,7 @@ export default function SkladkaDetail() {
 
   const handleSaveWyplata = async (form) => {
     if (form.id) {
-      await api.updateWyplata(form.id, { kwota: form.kwota, opis: form.opis, data: form.data, zalacznik: form.zalacznik, usun_zalacznik: form.usun_zalacznik });
+      await api.updateWyplata(form.id, { kwota: form.kwota, opis: form.opis, data: form.data, zalaczniki: form.zalaczniki || [] });
     } else {
       await api.addWyplata(form);
     }
@@ -593,7 +551,12 @@ export default function SkladkaDetail() {
       )}
       {(wyplataModal || wyplataEdit) && (
         <WyplataModal skladkaId={id} wyplataEdit={wyplataEdit} onClose={() => { setWyplataModal(false); setWyplataEdit(null); }}
-          onSave={handleSaveWyplata} />
+          onSave={handleSaveWyplata}
+          onDeleteZalacznik={async (wyplataId, zid) => {
+            await api.deleteWyplataZalacznik(wyplataId, zid);
+            load();
+          }}
+/>
       )}
 
       <div className="mb-6">
@@ -823,12 +786,12 @@ export default function SkladkaDetail() {
               <div>
                 <div className="font-body text-sm font-500 text-ink dark:text-gray-100">{w.opis || '—'}</div>
                 <div className="font-body text-xs text-sage-400 dark:text-gray-500">{w.data ? new Date(w.data).toLocaleDateString('pl-PL') : '—'}</div>
-                {w.zalacznik_nazwa && (
-                  <ZalacznikPreview
-                    wyplataId={w.id}
-                    nazwa={w.zalacznik_nazwa}
-                    typ={w.zalacznik_typ}
-                  />
+                {w.zalaczniki?.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {w.zalaczniki.map(z => (
+                      <ZalacznikItem key={z.id} wyplataId={w.id} z={z} />
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-3">

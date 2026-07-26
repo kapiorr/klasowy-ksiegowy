@@ -117,6 +117,19 @@ async function migrate() {
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS mfa_wymuszone BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS email VARCHAR(200)`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS telefon VARCHAR(30)`,
+    `CREATE TABLE IF NOT EXISTS wyplaty_zalaczniki (
+       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       wyplata_id UUID NOT NULL REFERENCES wyplaty(id) ON DELETE CASCADE,
+       nazwa VARCHAR(500) NOT NULL,
+       typ VARCHAR(100) NOT NULL,
+       dane BYTEA NOT NULL,
+       created_at TIMESTAMPTZ DEFAULT NOW()
+     )`,
+    `CREATE INDEX IF NOT EXISTS wyplaty_zalaczniki_wyplata_idx ON wyplaty_zalaczniki (wyplata_id)`,
+    `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_nazwa`,
+    `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_dane`,
+    `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_typ`,
+
     `DO $$ BEGIN
        IF NOT EXISTS (
          SELECT 1 FROM pg_constraint WHERE conname = 'uzytkownicy_email_unique'

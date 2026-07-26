@@ -40,15 +40,17 @@ export default function Layout() {
             <span className="text-base">⊕</span>Użytkownicy
           </NavLink>
         )}
+        {['admin', 'ksiegowy'].includes(user?.rola) && (
+          <NavLink to="/mailing" className={linkCls} onClick={close}>
+            <span className="text-base">✉</span>Mailing
+          </NavLink>
+        )}
         {user?.rola === 'admin' && (<>
           <NavLink to="/backup" className={linkCls} onClick={close}>
             <span className="text-base">◫</span>Backup
           </NavLink>
           <NavLink to="/logi" className={linkCls} onClick={close}>
             <span className="text-base">◳</span>Logi
-          </NavLink>
-          <NavLink to="/mailing" className={linkCls} onClick={close}>
-            <span className="text-base">✉</span>Mailing
           </NavLink>
           <NavLink to="/statystyki" className={linkCls} onClick={close}>
             <span className="text-base">◉</span>Statystyki

@@ -108,6 +108,7 @@ export const api = {
   addWyplata: (data) => request('/wyplaty', { method: 'POST', body: JSON.stringify(data) }),
   updateWyplata: (id, data) => request(`/wyplaty/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteWyplata: (id) => request(`/wyplaty/${id}`, { method: 'DELETE' }),
+  deleteWyplataZalacznik: (wyplataId, zalacznikId) => request(`/wyplaty/${wyplataId}/zalacznik/${zalacznikId}`, { method: 'DELETE' }),
   getLogi: (params) => request(`/logi?${params}`),
   getBlokady: () => request('/logi/blokady'),
   deleteBlokada: (id) => request(`/logi/blokady/${id}`, { method: 'DELETE' }),

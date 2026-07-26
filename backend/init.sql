@@ -79,9 +79,6 @@ CREATE TABLE wyplaty (
   kwota NUMERIC(10,2) NOT NULL,
   opis TEXT NOT NULL,
   data DATE NOT NULL DEFAULT CURRENT_DATE,
-  zalacznik_nazwa VARCHAR(500),
-  zalacznik_dane BYTEA,
-  zalacznik_typ VARCHAR(100),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -129,3 +126,14 @@ CREATE TABLE blokady (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (typ, wartosc)
 );
+
+-- Załączniki do wypłat (wiele plików per wypłata)
+CREATE TABLE IF NOT EXISTS wyplaty_zalaczniki (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  wyplata_id UUID NOT NULL REFERENCES wyplaty(id) ON DELETE CASCADE,
+  nazwa VARCHAR(500) NOT NULL,
+  typ VARCHAR(100) NOT NULL,
+  dane BYTEA NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS wyplaty_zalaczniki_wyplata_idx ON wyplaty_zalaczniki (wyplata_id);

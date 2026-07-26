@@ -175,6 +175,11 @@ APP_URL=https://twojadomena.pl
 # Godzina automatycznego backupu (0-23, czas lokalny kontenera)
 BACKUP_HOUR=5
 
+# Szyfrowanie backupów AES-256-GCM — wygeneruj: openssl rand -hex 32
+# Pozostaw puste aby backupy były niezaszyfrowane (plaintext JSON)
+# UWAGA: bez tego klucza nie odszyfrsujesz zaszyfrowanych backupów!
+BACKUP_ENCRYPTION_KEY=
+
 # Dane do wpłat — wyświetlane użytkownikowi z rolą Podgląd na dashboardzie
 # Pozostaw puste jeśli nie chcesz wyświetlać
 PAYMENT_ACCOUNT=12 3456 7890 1234 5678 9012 3456
@@ -259,6 +264,7 @@ klasowy-ksiegowy/
 ## 🔐 Bezpieczeństwo — uwagi
 
 - Nigdy nie zmieniaj `PEPPER` ani `MFA_ENCRYPTION_KEY` po pierwszym uruchomieniu — unieważni wszystkie hasła/MFA
+- `BACKUP_ENCRYPTION_KEY` — jeśli ustawiony, wszystkie backupy są szyfrowane AES-256-GCM; bez tego klucza zaszyfrowane backupy są nie do odczytania; przechowuj klucz osobno od backupów
 - `JWT_SECRET` można zmienić — spowoduje wylogowanie wszystkich użytkowników
 - Zalecane wdrożenie za **Cloudflare Tunnel** — nie wymaga otwierania portów na routerze
 - Wszystkie połączenia wewnętrzne (backend↔baza) odbywają się wewnątrz sieci Docker

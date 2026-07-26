@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, downloadSkladkaBackup, downloadRaportPdf } from '../api.js';
 import { useDialog } from '../components/Dialog.jsx';
+import DateInput from '../components/DateInput.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const STATUS_LABELS = { aktywna: 'Aktywna', zakonczona: 'Archiwalna', wstrzymana: 'Wstrzymana' };
@@ -60,8 +61,7 @@ function SkladkaModal({ skladka, onClose, onSave }) {
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink dark:text-gray-100 mb-1">Termin płatności</label>
-            <input type="date" value={form.termin} onChange={e => setForm(f => ({ ...f, termin: e.target.value }))}
-              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600" />
+            <DateInput value={form.termin} onChange={v => setForm(f => ({ ...f, termin: v }))} />
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink dark:text-gray-100 mb-1">Opis</label>

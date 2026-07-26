@@ -129,6 +129,7 @@ function AutoBackupy() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className={`font-mono text-xs px-2 py-0.5 rounded-full font-600 ${typInfo.cls}`}>{typInfo.label}</span>
+                        {b.encrypted && <span className="font-mono text-xs px-2 py-0.5 rounded-full font-600 bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">🔒 enc</span>}
                         <span className="font-body text-sm font-500 text-ink dark:text-gray-100">{new Date(b.created_at).toLocaleString('pl-PL')}</span>
                       </div>
                       <div className="font-body text-xs text-sage-400">{(b.rozmiar / 1024).toFixed(1)} KB</div>

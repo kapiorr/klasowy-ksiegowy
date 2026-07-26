@@ -7,25 +7,24 @@ const BACKUP_DIR = '/app/backups';
 import { validateFile } from '../filecheck.js';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { encryptBackup, decryptBackup } from '../crypto.js';
 
 const router = Router();
 
 // GET /backup
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy] = await Promise.all([
+    const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy, wyplatyZalaczniki] = await Promise.all([
       db.query('SELECT * FROM ucznowie ORDER BY created_at'),
       db.query('SELECT * FROM skladki ORDER BY created_at'),
       db.query('SELECT * FROM skladka_ucznowie'),
       db.query('SELECT * FROM wplaty ORDER BY created_at'),
-      db.query('SELECT id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at FROM wyplaty ORDER BY created_at'),
+      db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
       db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+      db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
     ]);
 
-    const wyplaty = wyplatyRaw.rows.map(w => ({
-      ...w,
-      zalacznik_dane: w.zalacznik_dane ? w.zalacznik_dane.toString('base64') : null,
-    }));
+    const wyplaty = wyplatyRaw.rows;
 
     const backup = {
       version: 1,
@@ -37,12 +36,15 @@ router.get('/', requireAdmin, async (req, res) => {
         wplaty: wplaty.rows,
         wyplaty,
         uzytkownicy: uzytkownicy.rows,
+        wyplaty_zalaczniki: wyplatyZalaczniki.rows,
       },
     };
 
+    const encrypted = encryptBackup(JSON.stringify(backup));
+    const output = encrypted ?? backup; // null = brak klucza = plaintext
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="backup-${new Date().toISOString().split('T')[0]}.json"`);
-    res.json(backup);
+    res.json(output);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Błąd eksportu' });
@@ -53,7 +55,17 @@ router.get('/', requireAdmin, async (req, res) => {
 router.post('/restore', requireAdmin, async (req, res) => {
   const client = await db.connect();
   try {
-    const payload = req.body;
+    let payload = req.body;
+
+    // Jeśli backup jest zaszyfrowany — odszyfruj
+    if (payload.encrypted === true) {
+      try {
+        payload = JSON.parse(decryptBackup(payload));
+      } catch (e) {
+        return res.status(400).json({ error: 'Nie można odszyfrować backupu: ' + e.message });
+      }
+    }
+
     if (payload.version !== 1) {
       return res.status(400).json({ error: 'Nieznana wersja backupu' });
     }
@@ -85,8 +97,19 @@ router.post('/restore', requireAdmin, async (req, res) => {
     }
     for (const r of wyplaty) {
       const dane = r.zalacznik_dane ? Buffer.from(r.zalacznik_dane, 'base64') : null;
-      await client.query('INSERT INTO wyplaty (id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-        [r.id, r.skladka_id, r.kwota, r.opis, r.data, r.zalacznik_nazwa, r.zalacznik_typ, dane, r.created_at]);
+      await client.query('INSERT INTO wyplaty (id, skladka_id, kwota, opis, data, created_at) VALUES ($1,$2,$3,$4,$5,$6)',
+        [r.id, r.skladka_id, r.kwota, r.opis, r.data, r.created_at]);
+    }
+    // Przywróć załączniki do wypłat
+    for (const z of (payload.data.wyplaty_zalaczniki || [])) {
+      const dane = z.dane_b64 ? Buffer.from(z.dane_b64, 'base64') : null;
+      if (!dane) continue;
+      await client.query(
+        `INSERT INTO wyplaty_zalaczniki (id, wyplata_id, nazwa, typ, dane, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (id) DO NOTHING`,
+        [z.id, z.wyplata_id, z.nazwa, z.typ, dane, z.created_at]
+      );
     }
     for (const r of uzytkownicy) {
       await client.query(
@@ -143,7 +166,12 @@ router.get('/auto', requireAdmin, (req, res) => {
       .map(f => {
         const stat = fs.statSync(path.join(BACKUP_DIR, f));
         const type = ['daily','weekly','monthly','yearly'].find(t => f.startsWith(`backup-${t}-`)) || 'daily';
-        return { nazwa: f, rozmiar: stat.size, created_at: stat.mtime, typ: type };
+        let encrypted = false;
+        try {
+          const head = fs.readFileSync(path.join(BACKUP_DIR, f), { encoding: 'utf8' }).slice(0, 60);
+          encrypted = head.includes('"encrypted":true') || head.includes('"encrypted": true');
+        } catch {}
+        return { nazwa: f, rozmiar: stat.size, created_at: stat.mtime, typ: type, encrypted };
       });
     res.json(files);
   } catch (err) {
@@ -197,10 +225,7 @@ router.get('/skladka/:id', requireAdmin, async (req, res) => {
       ? await db.query('SELECT * FROM ucznowie WHERE id = ANY($1)', [uczenIds])
       : { rows: [] };
 
-    const wyplaty = wyplatyRaw.rows.map(w => ({
-      ...w,
-      zalacznik_dane: w.zalacznik_dane ? w.zalacznik_dane.toString('base64') : null,
-    }));
+    const wyplaty = wyplatyRaw.rows;
 
     const backup = {
       version: 1,

@@ -56,6 +56,42 @@ export function decryptMfaSecret(stored) {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
 }
 
+// ── Szyfrowanie backupu (AES-256-GCM) ────────────────────────────────────────
+const BACKUP_KEY = () => {
+  const k = process.env.BACKUP_ENCRYPTION_KEY;
+  if (!k) return null;
+  const buf = Buffer.from(k, 'hex');
+  if (buf.length !== 32) throw new Error('BACKUP_ENCRYPTION_KEY musi mieć 64 znaki hex (32 bajty)');
+  return buf;
+};
+
+export function encryptBackup(jsonString) {
+  const key = BACKUP_KEY();
+  if (!key) return null; // brak klucza — nie szyfruj
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const enc = Buffer.concat([cipher.update(jsonString, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    encrypted: true,
+    algorithm: 'aes-256-gcm',
+    iv: iv.toString('hex'),
+    authTag: tag.toString('hex'),
+    dane: enc.toString('base64'),
+  };
+}
+
+export function decryptBackup(payload) {
+  const key = BACKUP_KEY();
+  if (!key) throw new Error('Brak BACKUP_ENCRYPTION_KEY w .env — nie można odszyfrować backupu');
+  const iv = Buffer.from(payload.iv, 'hex');
+  const tag = Buffer.from(payload.authTag, 'hex');
+  const enc = Buffer.from(payload.dane, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+}
+
 // ── Tokeny reset hasła ────────────────────────────────────────────────────────
 export function generateResetToken() {
   const raw = crypto.randomBytes(32).toString('hex');

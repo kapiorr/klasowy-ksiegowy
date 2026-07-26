@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import db from './db.js';
+import { encryptBackup } from './crypto.js';
 
 const BACKUP_DIR = '/app/backups';
 
@@ -18,19 +19,17 @@ const RETENTION = {
 };
 
 async function generateBackup() {
-  const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy] = await Promise.all([
+  const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy, wyplatyZalaczniki] = await Promise.all([
     db.query('SELECT * FROM ucznowie ORDER BY created_at'),
     db.query('SELECT * FROM skladki ORDER BY created_at'),
     db.query('SELECT * FROM skladka_ucznowie'),
     db.query('SELECT * FROM wplaty ORDER BY created_at'),
-    db.query('SELECT id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at FROM wyplaty ORDER BY created_at'),
+    db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
     db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+    db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
   ]);
 
-  const wyplaty = wyplatyRaw.rows.map(w => ({
-    ...w,
-    zalacznik_dane: w.zalacznik_dane ? w.zalacznik_dane.toString('base64') : null,
-  }));
+  const wyplaty = wyplatyRaw.rows;
 
   return {
     version: 1,
@@ -42,6 +41,7 @@ async function generateBackup() {
       wplaty: wplaty.rows,
       wyplaty,
       uzytkownicy: uzytkownicy.rows,
+      wyplaty_zalaczniki: wyplatyZalaczniki.rows,
     },
   };
 }
@@ -99,7 +99,9 @@ export async function runBackup(now = new Date()) {
 
     console.log(`Generowanie backupu (${type}): ${filename}`);
     const backup = await generateBackup();
-    fs.writeFileSync(filepath, JSON.stringify(backup));
+    const encrypted = encryptBackup(JSON.stringify(backup));
+    const output = encrypted ?? backup;
+    fs.writeFileSync(filepath, JSON.stringify(output));
     console.log(`Backup zapisany: ${filepath} (${(fs.statSync(filepath).size / 1024).toFixed(1)} KB)`);
 
     cleanOldBackups();
