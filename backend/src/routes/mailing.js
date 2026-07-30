@@ -3,6 +3,7 @@ import db from '../db.js';
 import { requireKsiegowy } from '../middleware/auth.js';
 import { sendNowaSkladka, sendZaleglosci } from '../mailer.js';
 import { log, getIP } from '../logger.js';
+import { sendPushToUsers } from '../pushSender.js';
 
 const router = Router();
 
@@ -16,7 +17,7 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
     const result = await db.query(`
       SELECT
         u.imie AS uczen_imie, u.nazwisko AS uczen_nazwisko,
-        uz.email, uz.login,
+        uz.id AS uzytkownik_id, uz.email, uz.login,
         s.kwota_na_osobe,
         COALESCE(SUM(w.kwota), 0) AS zaplacono
       FROM skladka_ucznowie su
@@ -94,7 +95,11 @@ router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'mailing_skladka',
       szczegoly: `${s.nazwa} | wysłano: ${wyslano}` });
 
-    res.json({ ok: true, wyslano, bledy });
+    // Wyślij push do subskrybentów
+    const uzIds = result.rows.filter(r => parseFloat(r.kwota_na_osobe) - parseFloat(r.zaplacono) > 0).map(r => r.uzytkownik_id);
+    const pushResult = await sendPushToUsers(uzIds, `Nowa składka: ${s.nazwa}`, `Do zapłacenia: ${parseFloat(s.kwota_na_osobe).toFixed(2)} zł`, '/').catch(() => ({ wyslano: 0 }));
+
+    res.json({ ok: true, wyslano, wyslano_push: pushResult.wyslano, bledy });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Błąd serwera' });
@@ -196,7 +201,11 @@ router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'mailing_zaleglosci',
       szczegoly: `wysłano: ${wyslano}${uzytkownik_ids?.length ? ` (wybranych: ${uzytkownik_ids.length})` : ' (wszyscy)'}` });
 
-    res.json({ ok: true, wyslano, bledy });
+    // Wyślij push
+    const uzIds = Object.keys(perUser);
+    const pushResult = await sendPushToUsers(uzIds, 'Przypomnienie o zaległościach', 'Sprawdź swoje zaległości w Klasowy Księgowy', '/').catch(() => ({ wyslano: 0 }));
+
+    res.json({ ok: true, wyslano, wyslano_push: pushResult.wyslano, bledy });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Błąd serwera' });

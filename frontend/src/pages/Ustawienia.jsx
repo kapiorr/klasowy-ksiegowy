@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api.js';
+import { api, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Sekcja: zmiana hasła ──────────────────────────────────────────────────────
@@ -248,6 +248,104 @@ function MfaSekcja() {
 }
 
 // ── Główna strona ustawień ────────────────────────────────────────────────────
+function PushSekcja() {
+  const [subscribed, setSubscribed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState('');
+  const [vapidKey, setVapidKey] = useState(null);
+  const [supported, setSupported] = useState(true);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setSupported(false); setLoading(false); return;
+    }
+    Promise.all([getPushVapidKey(), getPushStatus()])
+      .then(([{ key }, { subscribed }]) => { setVapidKey(key); setSubscribed(subscribed); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  };
+
+  const handleSubscribe = async () => {
+    setLoading(true); setMsg('');
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setMsg('Brak zgody na powiadomienia'); setLoading(false); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      await pushSubscribe(sub.toJSON());
+      setSubscribed(true);
+      setMsg('Powiadomienia włączone!');
+    } catch (e) {
+      setMsg('Błąd: ' + e.message);
+    } finally { setLoading(false); }
+  };
+
+  const handleUnsubscribe = async () => {
+    setLoading(true); setMsg('');
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) { await pushUnsubscribe(sub.endpoint); await sub.unsubscribe(); }
+      setSubscribed(false);
+      setMsg('Powiadomienia wyłączone');
+    } catch (e) {
+      setMsg('Błąd: ' + e.message);
+    } finally { setLoading(false); }
+  };
+
+  const handleTest = async () => {
+    try { await pushTest(); setMsg('Testowe powiadomienie wysłane!'); }
+    catch (e) { setMsg('Błąd: ' + e.message); }
+  };
+
+  if (!supported) return null;
+  if (!vapidKey && !loading) return null; // brak konfiguracji VAPID
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
+      <h2 className="font-display font-700 text-ink dark:text-gray-100 mb-1">🔔 Powiadomienia push</h2>
+      <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-4">
+        Otrzymuj powiadomienia o nowych składkach i zaległościach nawet gdy aplikacja jest zamknięta.
+      </p>
+      {msg && (
+        <div className={`font-body text-sm px-4 py-2.5 rounded-xl mb-4 ${msg.includes('Błąd') ? 'bg-rose-50 text-rose-600' : 'bg-sage-50 text-sage-700'}`}>
+          {msg}
+        </div>
+      )}
+      <div className="flex gap-3 flex-wrap">
+        {!subscribed ? (
+          <button onClick={handleSubscribe} disabled={loading}
+            className="bg-ink dark:bg-gray-900 text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700 disabled:opacity-50">
+            {loading ? '⏳' : '🔔 Włącz powiadomienia'}
+          </button>
+        ) : (<>
+          <button onClick={handleUnsubscribe} disabled={loading}
+            className="border border-sage-200 dark:border-gray-600 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 disabled:opacity-50">
+            🔕 Wyłącz powiadomienia
+          </button>
+          <button onClick={handleTest} disabled={loading}
+            className="border border-sage-200 dark:border-gray-600 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
+            ↗ Wyślij testowe
+          </button>
+        </>)}
+      </div>
+      {subscribed && (
+        <p className="font-body text-xs text-sage-400 mt-3">✓ Powiadomienia są aktywne na tym urządzeniu</p>
+      )}
+    </div>
+  );
+}
+
 export default function Ustawienia() {
   const { user } = useAuth();
   return (
@@ -258,6 +356,7 @@ export default function Ustawienia() {
       </div>
       <ZmianaHasla />
       <MfaSekcja />
+      <PushSekcja />
     </div>
   );
 }

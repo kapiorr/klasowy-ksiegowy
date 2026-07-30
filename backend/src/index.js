@@ -16,6 +16,7 @@ import logiRouter from './routes/logi.js';
 import statystykiRouter from './routes/statystyki.js';
 import raportRouter from './routes/raport.js';
 import mailingRouter from './routes/mailing.js';
+import pushRouter from './routes/push.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -71,6 +72,7 @@ app.use('/api/logi', logiRouter);
 app.use('/api/statystyki', statystykiRouter);
 app.use('/api/raport', raportRouter);
 app.use('/api/mailing', mailingRouter);
+app.use('/api/push', pushRouter);
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
@@ -126,6 +128,14 @@ async function migrate() {
        created_at TIMESTAMPTZ DEFAULT NOW()
      )`,
     `CREATE INDEX IF NOT EXISTS wyplaty_zalaczniki_wyplata_idx ON wyplaty_zalaczniki (wyplata_id)`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       uzytkownik_id UUID NOT NULL REFERENCES uzytkownicy(id) ON DELETE CASCADE,
+       subscription JSONB NOT NULL,
+       created_at TIMESTAMPTZ DEFAULT NOW()
+     )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_unique_endpoint
+     ON push_subscriptions (uzytkownik_id, (subscription->>'endpoint'))`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_nazwa`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_dane`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_typ`,

@@ -86,6 +86,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Inne
 - **Tryb ciemny** — wykrywa preferencje systemu, zapamiętuje wybór
 - **PWA** — można zainstalować jako aplikację na telefonie
+- **Push notifications** — powiadomienia push o nowych składkach i zaległościach; użytkownik włącza je w Ustawieniach; wymagają konfiguracji VAPID w `.env`
 - **Responsive** — w pełni obsługiwany na urządzeniach mobilnych
 - Backup całej bazy i restore (JSON z załącznikami base64)
 - **Automatyczny backup** codziennie o godzinie ustawionej w `.env` z czterema poziomami retencji:
@@ -174,6 +175,12 @@ APP_URL=https://twojadomena.pl
 
 # Godzina automatycznego backupu (0-23, czas lokalny kontenera)
 BACKUP_HOUR=5
+
+# Web Push (PWA powiadomienia push) — wygeneruj: node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)"
+# Pozostaw puste aby wyłączyć push notifications
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:admin@twojadomena.pl
 
 # Szyfrowanie backupów AES-256-GCM — wygeneruj: openssl rand -hex 32
 # Pozostaw puste aby backupy były niezaszyfrowane (plaintext JSON)

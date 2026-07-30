@@ -210,6 +210,11 @@ export const uploadSkladkaBackup = async (file) => {
 
 export const getBackupConfig = () => request('/backup/config');
 export const getAppConfig = () => request('/config');
+export const getPushVapidKey = () => request('/push/vapid-public-key');
+export const getPushStatus = () => request('/push/status');
+export const pushSubscribe = (subscription) => request('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription }) });
+export const pushUnsubscribe = (endpoint) => request('/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) });
+export const pushTest = () => request('/push/test', { method: 'POST' });
 
 export const getAutoBackups = () => {
   const token = localStorage.getItem('token');
