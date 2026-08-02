@@ -32,7 +32,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 
 - Logowanie możliwe zarówno loginem jak i adresem email
 - Login i email muszą być unikalne — walidacja przy tworzeniu i edycji użytkownika
-- Pola użytkownika: login, hasło, rola, imię, nazwisko, email (opcjonalny, walidowany), telefon (opcjonalny, walidowany), powiązany uczeń
+- Pola użytkownika: login, hasło, rola, imię, nazwisko, email (opcjonalny, walidowany), telefon (opcjonalny, walidowany), powiązany uczeń, sms_powiadomienia (bool)
 - Przypisanie ucznia możliwe dla dowolnej roli; wymagane tylko dla roli `podglad`
 - Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko`)
 - Wysyłka maila powitalnego z linkiem do ustawienia hasła — przy zakładaniu konta lub z poziomu edycji
@@ -54,6 +54,9 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Mailing
 - Powiadomienie o nowej składce — wysyłka do użytkowników przypisanych do składki z kwotą do zapłacenia i opisem składki (jeśli istnieje)
 - Przypomnienie o zaległościach — na żądanie admina/księgowego, do wszystkich lub wybranych użytkowników z zaległościami (role: podglad, podglad_pelny, ksiegowy)
+- Wybór kanału wysyłki: email, SMS lub oba jednocześnie
+- Wymuszenie SMS ignoruje preferencje użytkownika (z ostrzeżeniem)
+- SMS widoczny tylko gdy skonfigurowany `SMSAPI_TOKEN`
 - Podgląd listy odbiorców przed wysyłką
 - Maile zawierają nazwę klasy i szkoły z `.env`
 
@@ -86,6 +89,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Inne
 - **Tryb ciemny** — wykrywa preferencje systemu, zapamiętuje wybór
 - **PWA** — można zainstalować jako aplikację na telefonie
+- **SMS** — opcjonalne powiadomienia SMS przez SMSAPI.pl; użytkownik może włączyć/wyłączyć w Ustawieniach; admin może wymusić wysyłkę mimo wyłączenia
 - **Push notifications** — powiadomienia push o nowych składkach i zaległościach; użytkownik włącza je w Ustawieniach; wymagają konfiguracji VAPID w `.env`
 - **Responsive** — w pełni obsługiwany na urządzeniach mobilnych
 - Backup całej bazy i restore (JSON z załącznikami base64)
@@ -178,6 +182,12 @@ BACKUP_HOUR=5
 
 # Web Push (PWA powiadomienia push) — wygeneruj: node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)"
 # Pozostaw puste aby wyłączyć push notifications
+# SMSAPI — wysyłka SMS (opcjonalne)
+# Token OAuth: https://ssl.smsapi.pl/react/oauth/manage
+SMSAPI_TOKEN=
+# Pole nadawcy (maks. 11 znaków, zarejestrowane w panelu SMSAPI)
+SMSAPI_FROM=Ksiegowy
+
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:admin@twojadomena.pl
@@ -271,6 +281,7 @@ klasowy-ksiegowy/
 ## 🔐 Bezpieczeństwo — uwagi
 
 - Nigdy nie zmieniaj `PEPPER` ani `MFA_ENCRYPTION_KEY` po pierwszym uruchomieniu — unieważni wszystkie hasła/MFA
+- `SMSAPI_TOKEN` — jeśli ustawiony, SMS jest dostępny w mailingach; użytkownik może sam wyłączyć w Ustawieniach; admin może wymusić wysyłkę
 - `BACKUP_ENCRYPTION_KEY` — jeśli ustawiony, wszystkie backupy są szyfrowane AES-256-GCM; bez tego klucza zaszyfrowane backupy są nie do odczytania; przechowuj klucz osobno od backupów
 - `JWT_SECRET` można zmienić — spowoduje wylogowanie wszystkich użytkowników
 - Zalecane wdrożenie za **Cloudflare Tunnel** — nie wymaga otwierania portów na routerze

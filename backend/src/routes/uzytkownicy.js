@@ -36,7 +36,7 @@ router.get('/', requireKsiegowy, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.id, u.login, u.imie, u.nazwisko, u.rola, u.uczen_id, u.email, u.telefon,
-              u.mfa_enabled, u.mfa_wymuszone, u.force_password_change,
+              u.mfa_enabled, u.mfa_wymuszone, u.force_password_change, u.sms_powiadomienia,
               uc.imie AS uczen_imie, uc.nazwisko AS uczen_nazwisko
        FROM uzytkownicy u
        LEFT JOIN ucznowie uc ON uc.id = u.uczen_id
@@ -82,10 +82,10 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon`,
-      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon)]
+      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia`,
+      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon), req.body.sms_powiadomienia || false]
     );
     await log({ uzytkownik_id: req.user?.id, ip: getIP(req), akcja: 'add_uzytkownik', zasob: req.originalUrl,
       szczegoly: `${login} | rola: ${rola}${imie || nazwisko ? ' | ' + [imie, nazwisko].filter(Boolean).join(' ') : ''}` });
@@ -93,6 +93,33 @@ router.post('/', async (req, res) => {
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Login już zajęty' });
     console.error(err);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// GET /uzytkownicy/me — profil zalogowanego użytkownika
+router.get('/me', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT id, login, rola, uczen_id, email, telefon, sms_powiadomienia FROM uzytkownicy WHERE id=$1',
+      [req.user.id]
+    );
+    res.json(result.rows[0] || {});
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// PATCH /uzytkownicy/me/sms — użytkownik sam zmienia swoje ustawienia SMS
+router.patch('/me/sms', requireAuth, async (req, res) => {
+  const { sms_powiadomienia } = req.body;
+  try {
+    await db.query(
+      'UPDATE uzytkownicy SET sms_powiadomienia=$1 WHERE id=$2',
+      [!!sms_powiadomienia, req.user.id]
+    );
+    res.json({ ok: true, sms_powiadomienia: !!sms_powiadomienia });
+  } catch (err) {
     res.status(500).json({ error: 'Błąd serwera' });
   }
 });

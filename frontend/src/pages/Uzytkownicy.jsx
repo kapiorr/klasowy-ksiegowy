@@ -15,7 +15,7 @@ const EXPIRY_OPTIONS = [
   { value: 10080,label: '7 dni' },
 ];
 function DodajModal({ ucznowie, onClose, onSave }) {
-  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', telefon: '', imie: '', nazwisko: '' });
+  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', telefon: '', imie: '', nazwisko: '', sms_powiadomienia: false });
   const [wyslijMail, setWyslijMail] = useState(false);
   const [linkExpiry, setLinkExpiry] = useState(15);
   const [saving, setSaving] = useState(false);
@@ -96,6 +96,13 @@ function DodajModal({ ucznowie, onClose, onSave }) {
               <option value="podglad">Podgląd (własny uczeń)</option>
             </select>
           </div>
+          {form.telefon && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.sms_powiadomienia || false} onChange={e => setForm(f => ({ ...f, sms_powiadomienia: e.target.checked }))}
+                className="rounded border-sage-300" />
+              <span className="font-body text-sm text-ink dark:text-gray-100">Wysyłaj powiadomienia SMS</span>
+            </label>
+          )}
           <div>
               <label className="block font-body text-sm font-500 text-ink mb-1">
                 Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
@@ -207,6 +214,13 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
                 placeholder="600 123 456" maxLength={11} />
             </div>
           </div>
+          {form.telefon && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.sms_powiadomienia || false} onChange={e => setForm(f => ({ ...f, sms_powiadomienia: e.target.checked }))}
+                className="rounded border-sage-300" />
+              <span className="font-body text-sm text-ink dark:text-gray-100">Wysyłaj powiadomienia SMS</span>
+            </label>
+          )}
           <div>
               <label className="block font-body text-sm font-500 text-ink mb-1">
                 Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}

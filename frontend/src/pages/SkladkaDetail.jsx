@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api, downloadRaportSkladkiPdf, mailingSkladka, mailingPodglad } from '../api.js';
+import { api, downloadRaportSkladkiPdf, mailingSkladka, mailingPodglad, getMailingConfig } from '../api.js';
 import { useDialog } from '../components/Dialog.jsx';
 import DateInput from '../components/DateInput.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -431,6 +431,8 @@ export default function SkladkaDetail() {
 
   const { confirm, alert } = useDialog();
   const [mailingModal, setMailingModal] = useState(null); // { odbiorcy, skladka }
+  const [mailingPerUser, setMailingPerUser] = useState(new Map()); // id → { email, sms }
+  const [smsEnabled, setSmsEnabled] = useState(false);
   const isKsiegowy = ['admin', 'ksiegowy'].includes(user?.rola);
   const moznaEdytowac = isKsiegowy && data?.status === 'aktywna';
 
@@ -446,7 +448,7 @@ export default function SkladkaDetail() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); getMailingConfig().then(c => setSmsEnabled(c.sms_enabled)).catch(() => {}); }, [id]);
 
   const handleSaveWplata = async (form) => {
     if (form.id) await api.updateWplata(form.id, { kwota: form.kwota, data: form.data, notatka: form.notatka });
@@ -631,6 +633,13 @@ export default function SkladkaDetail() {
           <button onClick={async () => {
             try {
               const preview = await mailingPodglad(data.id);
+              // Inicjalizuj per-user: email=true, sms=true jeśli ma tel i SMS włączone
+              const m = new Map();
+              preview.odbiorcy.forEach(o => m.set(o.email, {
+                email: true,
+                sms: smsEnabled && !!o.telefon && !!o.sms_powiadomienia,
+              }));
+              setMailingPerUser(m);
               setMailingModal(preview);
             } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
           }}
@@ -823,18 +832,48 @@ export default function SkladkaDetail() {
                 <p className="font-body text-sage-500 text-center py-4">Brak odbiorców — wszyscy zapłacili lub nikt nie ma emaila.</p>
               ) : (<>
                 <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-3">
-                  Mail zostanie wysłany do <strong>{mailingModal.odbiorcy.length}</strong> {mailingModal.odbiorcy.length === 1 ? 'osoby' : 'osób'}:
+                  Wybierz kanał wysyłki per odbiorca:
                 </p>
-                <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
-                  {mailingModal.odbiorcy.map((o, i) => (
-                    <div key={i} className="flex items-center justify-between bg-sage-50 dark:bg-gray-700 rounded-xl px-4 py-2.5">
-                      <div>
-                        <div className="font-body text-sm text-ink dark:text-gray-100">{o.uczen}</div>
-                        <div className="font-body text-xs text-sage-400">{o.email}</div>
+                <div className="space-y-2 max-h-72 overflow-y-auto mb-4">
+                  {/* Nagłówek kolumn */}
+                  <div className="flex items-center gap-2 px-3 pb-1 border-b border-sage-100 dark:border-gray-700">
+                    <span className="w-5" />
+                    {smsEnabled && <span className="w-5" />}
+                    <span className="font-body text-xs text-sage-400 flex-1">Odbiorca</span>
+                    <span className="font-body text-xs text-sage-400">Kwota</span>
+                  </div>
+                  {mailingModal.odbiorcy.map((o, i) => {
+                    const sel = mailingPerUser.get(o.email) || { email: true, sms: false };
+                    const maaTel = !!o.telefon;
+                    const smsWyl = maaTel && !o.sms_powiadomienia;
+                    return (
+                      <div key={i} className="flex items-center gap-2 bg-sage-50 dark:bg-gray-700 rounded-xl px-3 py-2">
+                        {/* Email checkbox */}
+                        <label className="flex items-center cursor-pointer" title="Email">
+                          <input type="checkbox" checked={sel.email}
+                            onChange={() => setMailingPerUser(prev => { const m = new Map(prev); m.set(o.email, { ...sel, email: !sel.email }); return m; })}
+                            className="rounded border-sage-300" />
+                          <span className="font-body text-xs text-sage-500 ml-1">✉</span>
+                        </label>
+                        {/* SMS checkbox */}
+                        {smsEnabled && (
+                          <label className="flex items-center cursor-pointer" title={!maaTel ? 'Brak telefonu' : smsWyl ? 'SMS wyłączone — możesz wymusić' : 'SMS'}>
+                            <input type="checkbox" checked={sel.sms} disabled={!maaTel}
+                              onChange={() => setMailingPerUser(prev => { const m = new Map(prev); m.set(o.email, { ...sel, sms: !sel.sms }); return m; })}
+                              className={`rounded border-sage-300 ${!maaTel ? 'opacity-30' : ''}`} />
+                            <span className={`font-body text-xs ml-1 ${!maaTel ? 'text-sage-300' : smsWyl && sel.sms ? 'text-amber-500' : 'text-sage-500'}`}>
+                              📱{smsWyl && sel.sms ? '⚠' : ''}
+                            </span>
+                          </label>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-body text-sm text-ink dark:text-gray-100 truncate">{o.uczen}</div>
+                          <div className="font-body text-xs text-sage-400 truncate">{o.email}{maaTel ? ` · +48 ${o.telefon}` : ''}</div>
+                        </div>
+                        <span className="font-mono text-sm font-600 text-amber-600 flex-shrink-0">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
                       </div>
-                      <span className="font-mono text-sm font-600 text-amber-600">{parseFloat(o.pozostalo).toFixed(2)} zł</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>)}
             </div>
@@ -845,14 +884,19 @@ export default function SkladkaDetail() {
               </button>
               {mailingModal.odbiorcy.length > 0 && (
                 <button onClick={async () => {
+                  const emailIds = mailingModal.odbiorcy.filter(o => mailingPerUser.get(o.email)?.email).map(o => o.uzytkownik_id);
+                  const smsIds = mailingModal.odbiorcy.filter(o => mailingPerUser.get(o.email)?.sms).map(o => o.uzytkownik_id);
+                  if (!emailIds.length && !smsIds.length) return;
                   setMailingModal(null);
                   try {
-                    const r = await mailingSkladka(data.id);
-                    await alert('Wysłano: ' + r.wyslano + ' maili' + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
+                    const kanaly = [...(emailIds.length ? ['email'] : []), ...(smsIds.length ? ['sms'] : [])];
+                    const r = await mailingSkladka(data.id, kanaly, emailIds, smsIds);
+                    const parts = [r.wyslano && `${r.wyslano} maili`, r.wyslano_sms && `${r.wyslano_sms} SMS`].filter(Boolean);
+                    await alert('Wysłano: ' + (parts.join(', ') || '0') + (r.bledy?.length ? '. Błędy: ' + r.bledy.join(', ') : ''), 'success');
                   } catch (e) { await alert('Błąd: ' + e.message, 'error'); }
                 }}
                   className="flex-1 bg-ink dark:bg-gray-900 text-white rounded-xl py-2.5 font-display font-600 hover:bg-sage-700">
-                  Wyślij maile
+                  Wyślij
                 </button>
               )}
             </div>

@@ -127,10 +127,13 @@ export const api = {
   },
 };
 
-export const mailingSkladka = (id) => request(`/mailing/skladka/${id}`, { method: 'POST' });
+export const mailingSkladka = (id, kanaly, email_ids, sms_ids) => request(`/mailing/skladka/${id}`, { method: 'POST', body: JSON.stringify({ kanaly, email_ids, sms_ids }) });
 export const mailingPodglad = (id) => request(`/mailing/skladka/${id}/podglad`);
+export const getMailingConfig = () => request('/mailing/config');
+export const getMe = () => request('/uzytkownicy/me');
+export const updateMeSms = (sms_powiadomienia) => request('/uzytkownicy/me/sms', { method: 'PATCH', body: JSON.stringify({ sms_powiadomienia }) });
 export const getMailingZaleglosci = () => request('/mailing/zaleglosci/podglad');
-export const sendMailingZaleglosci = (ids) => request('/mailing/zaleglosci', { method: 'POST', body: JSON.stringify({ uzytkownik_ids: ids }) });
+export const sendMailingZaleglosci = (ids, kanaly, email_ids, sms_ids) => request('/mailing/zaleglosci', { method: 'POST', body: JSON.stringify({ uzytkownik_ids: ids, kanaly, email_ids, sms_ids }) });
 
 export const downloadRaportSkladkiPdf = async (id, nazwa) => {
   const token = localStorage.getItem('token');

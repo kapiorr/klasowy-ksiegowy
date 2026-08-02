@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest } from '../api.js';
+import { api, getMailingConfig, getMe, updateMeSms, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Sekcja: zmiana hasła ──────────────────────────────────────────────────────
@@ -248,6 +248,62 @@ function MfaSekcja() {
 }
 
 // ── Główna strona ustawień ────────────────────────────────────────────────────
+function SmsSekcja() {
+  const [me, setMe] = useState(null);
+  const [enabled, setEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [smsAvail, setSmsAvail] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    Promise.all([getMailingConfig(), getMe()])
+      .then(([cfg, meData]) => {
+        setSmsAvail(cfg.sms_enabled);
+        setMe(meData);
+        setEnabled(meData.sms_powiadomienia || false);
+      }).catch(() => {});
+  }, []);
+
+  if (!smsAvail) return null;
+  if (!me?.telefon) return null; // brak telefonu — nie ma sensu
+
+  const handleToggle = async (val) => {
+    setSaving(true); setMsg('');
+    try {
+      await updateMeSms(val);
+      setEnabled(val);
+      setMsg(val ? 'Powiadomienia SMS włączone' : 'Powiadomienia SMS wyłączone');
+    } catch (e) {
+      setMsg('Błąd: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
+      <h2 className="font-display font-700 text-ink dark:text-gray-100 mb-1">📱 Powiadomienia SMS</h2>
+      <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-4">
+        Numer telefonu: <span className="font-500 text-ink dark:text-gray-100">+48 {me.telefon}</span>
+      </p>
+      {msg && (
+        <div className="font-body text-sm px-4 py-2.5 rounded-xl mb-4 bg-sage-50 text-sage-700 dark:bg-gray-700 dark:text-sage-300">
+          {msg}
+        </div>
+      )}
+      <label className="flex items-center gap-3 cursor-pointer">
+        <div className={`relative w-11 h-6 rounded-full transition-colors ${enabled ? 'bg-sage-600' : 'bg-sage-200 dark:bg-gray-600'}`}
+          onClick={() => !saving && handleToggle(!enabled)}>
+          <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-5' : ''}`} />
+        </div>
+        <span className="font-body text-sm text-ink dark:text-gray-100">
+          {enabled ? 'SMS włączone — otrzymuję powiadomienia' : 'SMS wyłączone — nie otrzymuję powiadomień'}
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function PushSekcja() {
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -260,8 +316,8 @@ function PushSekcja() {
       setSupported(false); setLoading(false); return;
     }
     Promise.all([getPushVapidKey(), getPushStatus()])
-      .then(([{ key }, { subscribed }]) => { setVapidKey(key); setSubscribed(subscribed); })
-      .catch(() => {})
+      .then(([vk, ps]) => { setVapidKey(vk.key); setSubscribed(ps.subscribed); })
+      .catch((e) => console.error('Push init:', e))
       .finally(() => setLoading(false));
   }, []);
 
@@ -309,7 +365,7 @@ function PushSekcja() {
   };
 
   if (!supported) return null;
-  if (!vapidKey && !loading) return null; // brak konfiguracji VAPID
+  if (loading) return null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
@@ -356,6 +412,7 @@ export default function Ustawienia() {
       </div>
       <ZmianaHasla />
       <MfaSekcja />
+      <SmsSekcja />
       <PushSekcja />
     </div>
   );

@@ -4,8 +4,14 @@ import { requireKsiegowy } from '../middleware/auth.js';
 import { sendNowaSkladka, sendZaleglosci } from '../mailer.js';
 import { log, getIP } from '../logger.js';
 import { sendPushToUsers } from '../pushSender.js';
+import { sendSMSToUsers, sendSMSForced, smsApiEnabled } from '../smsSender.js';
 
 const router = Router();
+
+// GET /mailing/config — czy SMS jest dostępny
+router.get('/config', requireKsiegowy, (req, res) => {
+  res.json({ sms_enabled: smsApiEnabled() });
+});
 
 // GET /mailing/skladka/:id/podglad — podgląd odbiorców
 router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
@@ -17,7 +23,7 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
     const result = await db.query(`
       SELECT
         u.imie AS uczen_imie, u.nazwisko AS uczen_nazwisko,
-        uz.id AS uzytkownik_id, uz.email, uz.login,
+        uz.id AS uzytkownik_id, uz.email, uz.telefon, uz.login, uz.sms_powiadomienia,
         s.kwota_na_osobe,
         COALESCE(SUM(w.kwota), 0) AS zaplacono
       FROM skladka_ucznowie su
@@ -28,12 +34,14 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
       WHERE su.skladka_id = $1
         AND uz.email IS NOT NULL
         AND uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
-      GROUP BY u.imie, u.nazwisko, uz.email, uz.login, s.kwota_na_osobe
+      GROUP BY u.imie, u.nazwisko, uz.id, uz.email, uz.telefon, uz.login, uz.sms_powiadomienia, s.kwota_na_osobe
     `, [req.params.id]);
 
     const odbiorcy = result.rows
       .map(r => ({
         email: r.email,
+        telefon: r.telefon,
+        sms_powiadomienia: r.sms_powiadomienia,
         uczen: `${r.uczen_imie} ${r.uczen_nazwisko}`,
         pozostalo: parseFloat(r.kwota_na_osobe) - parseFloat(r.zaplacono),
       }))
@@ -41,12 +49,14 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
 
     res.json({ skladka: s.nazwa, odbiorcy });
   } catch (err) {
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error('mailing/podglad error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
 // POST /mailing/skladka/:id — wyślij powiadomienie o składce
 router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
+  const { kanaly = ['email'], email_ids, sms_ids } = req.body;
   try {
     const skladkaRes = await db.query('SELECT * FROM skladki WHERE id=$1', [req.params.id]);
     const s = skladkaRes.rows[0];
@@ -56,7 +66,7 @@ router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
     const result = await db.query(`
       SELECT
         u.imie AS uczen_imie, u.nazwisko AS uczen_nazwisko,
-        uz.email, uz.login,
+        uz.id AS uzytkownik_id, uz.email, uz.login, uz.telefon, uz.sms_powiadomienia,
         COALESCE(SUM(w.kwota), 0) AS zaplacono
       FROM skladka_ucznowie su
       JOIN ucznowie u ON u.id = su.uczen_id
@@ -65,30 +75,39 @@ router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
       WHERE su.skladka_id = $1
         AND uz.email IS NOT NULL
         AND uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
-      GROUP BY u.imie, u.nazwisko, uz.email, uz.login
+      GROUP BY u.imie, u.nazwisko, uz.id, uz.email, uz.login, uz.telefon, uz.sms_powiadomienia
     `, [req.params.id]);
 
     if (result.rows.length === 0) {
       return res.json({ ok: true, wyslano: 0, info: 'Brak użytkowników z emailem przypisanych do tej składki' });
     }
 
-    let wyslano = 0;
+    let wyslano = 0, wyslano_sms = 0;
     const bledy = [];
     for (const r of result.rows) {
       const pozostalo = parseFloat(s.kwota_na_osobe) - parseFloat(r.zaplacono);
       if (pozostalo <= 0) continue; // już zapłacił
       try {
-        await sendNowaSkladka(
+        const wyslijEmail = email_ids ? email_ids.includes(r.uzytkownik_id) : kanaly.includes('email');
+        const wyslijSms = sms_ids ? sms_ids.includes(r.uzytkownik_id) : kanaly.includes('sms');
+        if (wyslijEmail && r.email) {
+          await sendNowaSkladka(
           r.email,
           `${r.uczen_imie} ${r.uczen_nazwisko}`,
           s.nazwa,
           pozostalo,
           s.termin,
           s.opis
-        );
-        wyslano++;
+          );
+          wyslano++;
+        }
+        if (wyslijSms && r.telefon) {
+          const tresc = `Nowa skladka: ${s.nazwa}. Do zaplaty: ${parseFloat(pozostalo).toFixed(2)} zl.`;
+          try { await sendSMSForced(r.telefon, tresc); wyslano_sms++; }
+          catch (e) { bledy.push(`SMS ${r.telefon}: ${e.message}`); }
+        }
       } catch (e) {
-        bledy.push(`${r.email}: ${e.message}`);
+        bledy.push(`${r.email || r.login}: ${e.message}`);
       }
     }
 
@@ -99,7 +118,7 @@ router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
     const uzIds = result.rows.filter(r => parseFloat(r.kwota_na_osobe) - parseFloat(r.zaplacono) > 0).map(r => r.uzytkownik_id);
     const pushResult = await sendPushToUsers(uzIds, `Nowa składka: ${s.nazwa}`, `Do zapłacenia: ${parseFloat(s.kwota_na_osobe).toFixed(2)} zł`, '/').catch(() => ({ wyslano: 0 }));
 
-    res.json({ ok: true, wyslano, wyslano_push: pushResult.wyslano, bledy });
+    res.json({ ok: true, wyslano, wyslano_sms, wyslano_push: pushResult.wyslano, bledy });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Błąd serwera' });
@@ -111,7 +130,7 @@ router.get('/zaleglosci/podglad', requireKsiegowy, async (req, res) => {
   try {
     const result = await db.query(`
       SELECT
-        uz.id, uz.login, uz.email,
+        uz.id, uz.login, uz.email, uz.telefon, uz.sms_powiadomienia,
         u.imie AS uczen_imie, u.nazwisko AS uczen_nazwisko,
         COUNT(DISTINCT su.skladka_id) FILTER (
           WHERE COALESCE(wp.zaplacono, 0) < s.kwota_na_osobe
@@ -132,7 +151,7 @@ router.get('/zaleglosci/podglad', requireKsiegowy, async (req, res) => {
       WHERE uz.rola IN ('podglad', 'podglad_pelny', 'ksiegowy')
         AND uz.email IS NOT NULL
         AND s.status = 'aktywna'
-      GROUP BY uz.id, uz.login, uz.email, u.imie, u.nazwisko
+      GROUP BY uz.id, uz.login, uz.email, uz.telefon, uz.sms_powiadomienia, u.imie, u.nazwisko
       HAVING SUM(s.kwota_na_osobe - COALESCE(wp.zaplacono, 0)) FILTER (
         WHERE COALESCE(wp.zaplacono, 0) < s.kwota_na_osobe AND s.status = 'aktywna'
       ) > 0
@@ -147,12 +166,12 @@ router.get('/zaleglosci/podglad', requireKsiegowy, async (req, res) => {
 
 // POST /mailing/zaleglosci — wyślij przypomnienia o zaległościach
 router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
-  const { uzytkownik_ids } = req.body; // null = wszyscy, array = wybrani
+  const { uzytkownik_ids, kanaly = ['email'], email_ids, sms_ids } = req.body;
   try {
     // Pobierz szczegółowe zaległości per użytkownik
     const query = `
       SELECT
-        uz.id, uz.email, uz.login,
+        uz.id, uz.email, uz.login, uz.telefon, uz.sms_powiadomienia,
         u.imie AS uczen_imie, u.nazwisko AS uczen_nazwisko,
         s.nazwa AS skladka_nazwa,
         s.kwota_na_osobe - COALESCE(wp.zaplacono, 0) AS pozostalo
@@ -180,6 +199,8 @@ router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
       if (!perUser[r.id]) {
         perUser[r.id] = {
           email: r.email,
+          telefon: r.telefon,
+          sms_powiadomienia: r.sms_powiadomienia,
           uczenImie: `${r.uczen_imie} ${r.uczen_nazwisko}`,
           zaleglosci: [],
         };
@@ -187,14 +208,24 @@ router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
       perUser[r.id].zaleglosci.push({ nazwa: r.skladka_nazwa, pozostalo: parseFloat(r.pozostalo) });
     }
 
-    let wyslano = 0;
+    let wyslano = 0, wyslano_sms = 0;
     const bledy = [];
-    for (const u of Object.values(perUser)) {
+    for (const [uid, u] of Object.entries(perUser)) {
       try {
-        await sendZaleglosci(u.email, u.uczenImie, u.zaleglosci);
-        wyslano++;
+        const wyslijEmail = email_ids ? email_ids.includes(uid) : kanaly.includes('email');
+        const wyslijSms = sms_ids ? sms_ids.includes(uid) : kanaly.includes('sms');
+        if (wyslijEmail && u.email) {
+          await sendZaleglosci(u.email, u.uczenImie, u.zaleglosci);
+          wyslano++;
+        }
+        if (wyslijSms && u.telefon) {
+          const suma = u.zaleglosci.reduce((s, z) => s + z.pozostalo, 0);
+          const tresc = `Przypomnienie: zaleglosci ${u.uczenImie}: ${suma.toFixed(2)} zl. Sprawdz aplikacje Klasowy Ksiegowy.`;
+          try { await sendSMSForced(u.telefon, tresc); wyslano_sms++; }
+          catch (e) { bledy.push(`SMS ${u.telefon}: ${e.message}`); }
+        }
       } catch (e) {
-        bledy.push(`${u.email}: ${e.message}`);
+        bledy.push(`${u.email || uid}: ${e.message}`);
       }
     }
 
@@ -205,7 +236,7 @@ router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
     const uzIds = Object.keys(perUser);
     const pushResult = await sendPushToUsers(uzIds, 'Przypomnienie o zaległościach', 'Sprawdź swoje zaległości w Klasowy Księgowy', '/').catch(() => ({ wyslano: 0 }));
 
-    res.json({ ok: true, wyslano, wyslano_push: pushResult.wyslano, bledy });
+    res.json({ ok: true, wyslano, wyslano_sms, wyslano_push: pushResult.wyslano, bledy });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Błąd serwera' });

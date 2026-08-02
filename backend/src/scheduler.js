@@ -25,7 +25,7 @@ async function generateBackup() {
     db.query('SELECT * FROM skladka_ucznowie'),
     db.query('SELECT * FROM wplaty ORDER BY created_at'),
     db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
-    db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+    db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
     db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
   ]);
 
