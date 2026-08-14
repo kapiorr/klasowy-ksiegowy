@@ -72,7 +72,7 @@ export const api = {
   cofnijWymuszenieHasla: (id) => request(`/uzytkownicy/${id}/cofnij-wymuszenie-hasla`, { method: 'PATCH' }),
   importUzytkownicyCsv: (csv) => request('/uzytkownicy/import-csv', { method: 'POST', body: JSON.stringify({ csv }) }),
   deleteUzytkownik: (id) => request(`/uzytkownicy/${id}`, { method: 'DELETE' }),
-  wymuszonaZmianaHasla: (user_id, nowe_haslo) => request('/auth/wymuszona-zmiana-hasla', { method: 'POST', body: JSON.stringify({ user_id, nowe_haslo }) }),
+  wymuszonaZmianaHasla: (nowe_haslo) => request('/auth/wymuszona-zmiana-hasla', { method: 'POST', body: JSON.stringify({ nowe_haslo }) }),
 
   // Uczniowie
   getUcznowie: (wszyscy = false) => request(`/ucznowie${wszyscy ? '?wszyscy=1' : ''}`),

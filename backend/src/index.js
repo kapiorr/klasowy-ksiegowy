@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import db from './db.js';
 import { hashHaslo } from './crypto.js';
 import { activityMiddleware, cleanOldLogs, getIP } from './logger.js';
@@ -21,8 +23,38 @@ import pushRouter from './routes/push.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Nagłówki bezpieczeństwa
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP ustawiony przez nginx
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS — tylko z dozwolonej domeny
+app.use(cors({
+  origin: process.env.APP_URL || false,
+  credentials: true,
+}));
+
 app.use(express.json({ limit: '20mb' }));
+
+// Globalny rate limit — 200 requestów / 15 min per IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Za dużo requestów — spróbuj ponownie za chwilę' },
+});
+app.use(globalLimiter);
+
+// Rate limit dla mailingu i SMS — 10 wysyłek / 15 min
+export const mailingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Za dużo wysyłek — spróbuj ponownie za chwilę' },
+});
 
 // Middleware blokady IP — sprawdza przed każdym requestem
 app.use(async (req, res, next) => {
@@ -38,7 +70,9 @@ app.use(async (req, res, next) => {
     if (result.rows.length > 0) {
       return res.status(403).json({ blocked: true, error: 'Adres IP jest zablokowany' });
     }
-  } catch {}
+  } catch {
+    return res.status(503).json({ error: 'Błąd serwera — spróbuj ponownie' });
+  }
   next();
 });
 
@@ -71,8 +105,24 @@ app.use('/api/backup', backupRouter);
 app.use('/api/logi', logiRouter);
 app.use('/api/statystyki', statystykiRouter);
 app.use('/api/raport', raportRouter);
-app.use('/api/mailing', mailingRouter);
-app.use('/api/push', pushRouter);
+app.use('/api/mailing', mailingLimiter, mailingRouter);
+app.use('/api/push', mailingLimiter, pushRouter);
+
+// Globalny error handler — łapie nieobsłużone wyjątki z async handlerów
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err.message, err.stack);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Wewnętrzny błąd serwera' });
+});
+
+// Walidacja wymaganych zmiennych środowiskowych
+const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL', 'PEPPER', 'MFA_ENCRYPTION_KEY', 'APP_URL'];
+for (const key of REQUIRED_ENV) {
+  if (!process.env[key]) {
+    console.error(`BŁĄD: Brak wymaganej zmiennej środowiskowej: ${key}`);
+    process.exit(1);
+  }
+}
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
@@ -87,12 +137,16 @@ app.get('/api/check-ip', async (req, res) => {
     );
     res.json({ blocked: result.rows.length > 0 });
   } catch {
-    res.json({ blocked: false });
+    res.status(503).json({ blocked: false, error: 'Błąd serwera' });
   }
 });
 
 async function migrate() {
-  // Dodaj brakujące kolumny jeśli nie istnieją (bezpieczne przy każdym starcie)
+  // Advisory lock — zapobiega race condition przy wielu instancjach
+  const client = await db.connect();
+  try {
+    await client.query('SELECT pg_advisory_lock(12345678)');
+    // Dodaj brakujące kolumny jeśli nie istnieją (bezpieczne przy każdym starcie)
   const migrations = [
     `CREATE EXTENSION IF NOT EXISTS pg_stat_statements`,
     `ALTER TABLE ucznowie ADD COLUMN IF NOT EXISTS aktywny BOOLEAN NOT NULL DEFAULT TRUE`,
@@ -199,7 +253,7 @@ async function migrate() {
   ];
   for (const sql of migrations) {
     try {
-      await db.query(sql);
+      await client.query(sql);
     } catch (err) {
       console.error('Migracja blad:', err.message.split('\n')[0]);
     }
@@ -207,7 +261,7 @@ async function migrate() {
   // Zaktualizuj konto ADMIN_LOGIN z ksiegowy na admin jeśli istnieje
   const adminLogin = process.env.ADMIN_LOGIN;
   if (adminLogin) {
-    const updated = await db.query(
+    const updated = await client.query(
       "UPDATE uzytkownicy SET rola='admin' WHERE login=$1 AND rola='ksiegowy' RETURNING login",
       [adminLogin]
     );
@@ -216,6 +270,10 @@ async function migrate() {
     }
   }
   console.log('Migracje zakonczone');
+  } finally {
+    await client.query('SELECT pg_advisory_unlock(12345678)');
+    client.release();
+  }
 }
 
 async function waitForDb(retries = 10, delay = 2000) {

@@ -2,7 +2,11 @@ import crypto from 'crypto';
 import argon2 from 'argon2';
 
 // ── Argon2 (hasła użytkowników) ──────────────────────────────────────────────
-const PEPPER = () => process.env.PEPPER || '';
+const PEPPER = () => {
+  const p = process.env.PEPPER || '';
+  if (!p) console.warn('OSTRZEŻENIE: PEPPER nie jest ustawiony — hasła są słabiej chronione!');
+  return p;
+};
 
 export async function hashHaslo(haslo) {
   return argon2.hash(haslo + PEPPER(), {

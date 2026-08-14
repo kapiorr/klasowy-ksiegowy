@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { log, getIP, isBlocked, checkFailedLogins } from '../logger.js';
 import { sendAdminAlert } from '../mailer.js';
 import jwt from 'jsonwebtoken';
@@ -74,8 +75,7 @@ router.post('/login', async (req, res) => {
       }
       const { decryptMfaSecret, verifyBackupCode } = await import('../crypto.js');
       const secret = decryptMfaSecret(user.mfa_secret);
-      const totpResult = await verifyTotp({ secret, token: mfa_kod });
-      const validTotp = totpResult.valid;
+      const validTotp = verifyTotp({ secret, token: mfa_kod });
 
       if (!validTotp) {
         const codes = user.mfa_backup_codes || [];
@@ -261,13 +261,12 @@ router.post('/mfa/aktywuj', requireAuth, async (req, res) => {
     if (!user?.mfa_secret) return res.status(400).json({ error: 'Najpierw wygeneruj QR kod' });
 
     const secret = decryptMfaSecret(user.mfa_secret);
-    const totpCheck = await verifyTotp({ secret, token: kod });
-    const valid = totpCheck.valid;
+    const valid = verifyTotp({ secret, token: kod });
     if (!valid) return res.status(400).json({ error: 'Nieprawidłowy kod — spróbuj ponownie' });
 
     // Generuj 8 backup codes
     const rawCodes = Array.from({ length: 8 }, () =>
-      Math.random().toString(36).substring(2, 8).toUpperCase()
+      crypto.randomBytes(4).toString('hex').toUpperCase()
     );
     const hashedCodes = await Promise.all(rawCodes.map(hashBackupCode));
 
@@ -325,9 +324,10 @@ router.get('/mfa/status', requireAuth, async (req, res) => {
 });
 
 // ── Wymuszona zmiana hasła (bez tokenu, po zalogowaniu) ──────────────────────
-router.post('/wymuszona-zmiana-hasla', async (req, res) => {
-  const { user_id, nowe_haslo } = req.body;
-  if (!user_id || !nowe_haslo) return res.status(400).json({ error: 'Brakuje danych' });
+router.post('/wymuszona-zmiana-hasla', requireAuth, async (req, res) => {
+  const { nowe_haslo } = req.body;
+  const user_id = req.user.id; // zawsze ID zalogowanego użytkownika
+  if (!nowe_haslo) return res.status(400).json({ error: 'Brakuje nowego hasła' });
   if (nowe_haslo.length < 8) return res.status(400).json({ error: 'Haslo min. 8 znakow' });
 
   try {

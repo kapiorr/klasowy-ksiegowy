@@ -165,7 +165,7 @@ MFA_ENCRYPTION_KEY=
 POSTGRES_USER=ksiegowy
 POSTGRES_PASSWORD=haslo_do_bazy
 POSTGRES_DB=klasowy_ksiegowy
-DATABASE_URL=postgres://ksiegowy:haslo_do_bazy@db:5432/klasowy_ksiegowy
+# DATABASE_URL jest składane automatycznie przez docker-compose — nie podawaj go tutaj
 
 # Email (SMTP) — opcjonalne, wymagane do resetowania hasła, zaproszeń i mailingu
 EMAIL_SERVER=smtp.mailgun.org

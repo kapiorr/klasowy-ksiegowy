@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { validateBody } from '../validate.js';
+
 import db from '../db.js';
 import { requireAuth, requireKsiegowy } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
@@ -18,7 +20,10 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // POST /ucznowie
-router.post('/', requireKsiegowy, async (req, res) => {
+router.post('/', requireKsiegowy, validateBody({
+  imie: { type: 'string', required: true, max: 100 },
+  nazwisko: { type: 'string', required: true, max: 100 },
+}), async (req, res) => {
   const { imie, nazwisko } = req.body;
   if (!imie || !nazwisko) return res.status(400).json({ error: 'Imię i nazwisko są wymagane' });
   const client = await db.connect();

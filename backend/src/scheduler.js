@@ -3,7 +3,7 @@ import path from 'path';
 import db from './db.js';
 import { encryptBackup } from './crypto.js';
 
-const BACKUP_DIR = '/app/backups';
+const BACKUP_DIR = process.env.BACKUP_DIR || '/app/backups';
 
 // Poziomy retencji:
 // daily   — codzienne, trzymane 7 dni
@@ -85,7 +85,11 @@ function cleanOldBackups() {
     });
 }
 
+let isRunning = false;
+
 export async function runBackup(now = new Date()) {
+  if (isRunning) { console.log('Backup już trwa — pomijam'); return; }
+  isRunning = true;
   try {
     if (!fs.existsSync(BACKUP_DIR)) {
       fs.mkdirSync(BACKUP_DIR, { recursive: true });
@@ -107,6 +111,8 @@ export async function runBackup(now = new Date()) {
     cleanOldBackups();
   } catch (err) {
     console.error('Blad backupu:', err.message);
+  } finally {
+    isRunning = false;
   }
 }
 

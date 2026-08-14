@@ -52,6 +52,8 @@ router.get('/', requireKsiegowy, async (req, res) => {
 router.post('/', async (req, res) => {
   const { login, haslo, rola, uczen_id, email, imie, nazwisko } = req.body;
   if (!login || !haslo || !rola) return res.status(400).json({ error: 'Brakuje danych' });
+  const DOZWOLONE_ROLE = ['admin', 'ksiegowy', 'podglad_pelny', 'podglad'];
+  if (!DOZWOLONE_ROLE.includes(rola)) return res.status(400).json({ error: `Niedozwolona rola: "${rola}". Dozwolone: ${DOZWOLONE_ROLE.join(', ')}` });
 
   try {
     const count = await db.query('SELECT COUNT(*) FROM uzytkownicy');

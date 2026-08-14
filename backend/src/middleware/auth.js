@@ -25,9 +25,7 @@ export function requireAuth(req, res, next) {
       req.user = decoded;
       next();
     }).catch(() => {
-      // Błąd DB — przepuść żeby nie blokować
-      req.user = decoded;
-      next();
+      return res.status(503).json({ error: 'Błąd serwera — spróbuj ponownie' });
     });
   } catch {
     res.status(401).json({ error: 'Nieprawidłowy token' });

@@ -14,9 +14,14 @@ export async function sendSMS(numer, tresc) {
   const client = getClient();
   if (!client) throw new Error('Brak konfiguracji SMSAPI_TOKEN');
 
-  // Formatuj numer — wymagany format 48xxxxxxxxx
+  // Walidacja i formatowanie polskiego numeru
   const cyfry = numer.replace(/\D/g, '');
-  const tel = cyfry.startsWith('48') ? cyfry : `48${cyfry}`;
+  // Polskie numery: 9 cyfr (bez prefiksu) lub 48+9 cyfr
+  const bez48 = cyfry.startsWith('48') ? cyfry.slice(2) : cyfry;
+  if (!/^[4-9]\d{8}$/.test(bez48)) {
+    throw new Error(`Nieprawidłowy format polskiego numeru telefonu: ${numer}`);
+  }
+  const tel = `48${bez48}`;
 
   // normalize=1 zamienia polskie znaki na łacińskie (więcej znaków w SMS)
   const result = await client.message.sms()

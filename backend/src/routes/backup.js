@@ -69,6 +69,34 @@ router.post('/restore', requireAdmin, async (req, res) => {
     if (payload.version !== 1) {
       return res.status(400).json({ error: 'Nieznana wersja backupu' });
     }
+
+    // Walidacja struktury payloadu
+    if (!payload.data || typeof payload.data !== 'object') {
+      return res.status(400).json({ error: 'Nieprawidłowy format backupu: brak sekcji data' });
+    }
+    const wymagane = ['ucznowie', 'skladki', 'skladka_ucznowie', 'wplaty', 'wyplaty', 'uzytkownicy'];
+    for (const pole of wymagane) {
+      if (!Array.isArray(payload.data[pole])) {
+        return res.status(400).json({ error: `Nieprawidłowy format backupu: "${pole}" musi być tablicą` });
+      }
+    }
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const u of payload.data.ucznowie) {
+      if (!UUID_RE.test(u.id) || typeof u.imie !== 'string' || typeof u.nazwisko !== 'string') {
+        return res.status(400).json({ error: 'Nieprawidłowe dane ucznia w backupie' });
+      }
+    }
+    for (const s of payload.data.skladki) {
+      if (!UUID_RE.test(s.id) || typeof s.nazwa !== 'string' || isNaN(parseFloat(s.kwota_na_osobe))) {
+        return res.status(400).json({ error: 'Nieprawidłowe dane składki w backupie' });
+      }
+    }
+    for (const u of payload.data.uzytkownicy) {
+      if (!UUID_RE.test(u.id) || typeof u.login !== 'string' || !['admin','ksiegowy','podglad','podglad_pelny'].includes(u.rola)) {
+        return res.status(400).json({ error: 'Nieprawidłowe dane użytkownika w backupie' });
+      }
+    }
+
     const { ucznowie, skladki, skladka_ucznowie, wplaty, wyplaty, uzytkownicy } = payload.data;
 
     await client.query('BEGIN');

@@ -1,14 +1,29 @@
 import nodemailer from 'nodemailer';
 
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
+let _transport = null;
 function getTransport() {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_SERVER,
-    port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
-    auth: {
-      user: process.env.EMAIL_SERVER_USER,
-      pass: process.env.EMAIL_SERVER_PASSWORD,
-    },
-  });
+  if (!_transport) {
+    _transport = nodemailer.createTransport({
+      host: process.env.EMAIL_SERVER,
+      port: parseInt(process.env.EMAIL_SERVER_PORT || '587'),
+      auth: {
+        user: process.env.EMAIL_SERVER_USER,
+        pass: process.env.EMAIL_SERVER_PASSWORD,
+      },
+      pool: true,
+      maxConnections: 5,
+    });
+  }
+  return _transport;
 }
 
 function appInfo(html = false) {
@@ -80,9 +95,9 @@ export async function sendResetEmail(email, token) {
 // ── Mail powitalny z linkiem do ustawienia hasła
 export async function sendWelcome(email, login, resetUrl, expiryLabel = '15 minut') {
   const body = `
-    <p>Czesc <strong>${login}</strong>!</p>
+    <p>Czesc <strong>${escapeHtml(login)}</strong>!</p>
     <p>Zostalo dla Ciebie utworzone konto w aplikacji <strong>Klasowy Ksiegowy</strong>.</p>
-    <p>Kliknij przycisk ponizej aby ustawic swoje haslo. Link jest wazny przez <strong>${expiryLabel}</strong>.</p>
+    <p>Kliknij przycisk ponizej aby ustawic swoje haslo. Link jest wazny przez <strong>${escapeHtml(expiryLabel)}</strong>.</p>
     ${btn(resetUrl, 'Ustaw haslo')}
     <p style="color:#999;font-size:12px;">Jezeli nie spodziewales sie tego maila, zignoruj go.</p>
     <p style="color:#ccc;font-size:11px;word-break:break-all;">${resetUrl}</p>
@@ -99,12 +114,12 @@ export async function sendWelcome(email, login, resetUrl, expiryLabel = '15 minu
 export async function sendAdminAlert(login, ip, blokady) {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) return;
-  const info = blokady.map(b => `<li>${b.typ}: <strong>${b.wartosc}</strong> (${b.count} prob)</li>`).join('');
+  const info = blokady.map(b => `<li>${escapeHtml(b.typ)}: <strong>${escapeHtml(b.wartosc)}</strong> (${b.count} prob)</li>`).join('');
   const body = `
     <p>Wykryto <strong>5 nieudanych prob logowania</strong>:</p>
     <ul style="margin:12px 0;padding-left:20px;">
-      <li>Login: <strong>${login}</strong></li>
-      <li>IP: <strong>${ip}</strong></li>
+      <li>Login: <strong>${escapeHtml(login)}</strong></li>
+      <li>IP: <strong>${escapeHtml(ip)}</strong></li>
     </ul>
     <p>Zablokowane:</p>
     <ul style="margin:12px 0;padding-left:20px;">${info}</ul>
@@ -120,12 +135,12 @@ export async function sendAdminAlert(login, ip, blokady) {
 
 // ── Powiadomienie o nowej składce
 export async function sendNowaSkladka(email, uczenImie, skladkaNazwa, kwota, termin, opis) {
-  const terminTxt = termin ? `<p>Termin platnosci: <strong>${new Date(termin).toLocaleDateString('pl-PL')}</strong></p>` : '';
-  const opisTxt = opis ? `<p style="color:#555;font-size:14px;margin-top:8px;">${opis}</p>` : '';
+  const terminTxt = termin ? `<p>Termin platnosci: <strong>${escapeHtml(new Date(termin).toLocaleDateString('pl-PL'))}</strong></p>` : '';
+  const opisTxt = opis ? `<p style="color:#555;font-size:14px;margin-top:8px;">${escapeHtml(opis)}</p>` : '';
   const body = `
-    <p>Została założona nowa składka dla <strong>${uczenImie}</strong>.</p>
+    <p>Została założona nowa składka dla <strong>${escapeHtml(uczenImie)}</strong>.</p>
     <div style="background:#f0f7f0;border-radius:10px;padding:16px 20px;margin:16px 0;">
-      <div style="font-size:16px;font-weight:600;color:#0f1117;">${skladkaNazwa}</div>
+      <div style="font-size:16px;font-weight:600;color:#0f1117;">${escapeHtml(skladkaNazwa)}</div>
       ${opisTxt}
       <div style="font-size:22px;font-weight:700;color:#4a8c4a;margin-top:6px;">${PLN(kwota)} do zapłaty</div>
     </div>
@@ -145,12 +160,12 @@ export async function sendZaleglosci(email, uczenImie, zaleglosci) {
   const suma = zaleglosci.reduce((s, z) => s + z.pozostalo, 0);
   const rows = zaleglosci.map(z => `
     <tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #eee;">${z.nazwa}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;">${escapeHtml(z.nazwa)}</td>
       <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;color:#c05a00;font-weight:600;">${PLN(z.pozostalo)}</td>
     </tr>
   `).join('');
   const body = `
-    <p>Przypominamy o zaległościach w platnościach dla <strong>${uczenImie}</strong>.</p>
+    <p>Przypominamy o zaległościach w platnościach dla <strong>${escapeHtml(uczenImie)}</strong>.</p>
     <table style="width:100%;border-collapse:collapse;margin:16px 0;border-radius:8px;overflow:hidden;border:1px solid #eee;">
       <thead>
         <tr style="background:#f5f3ee;">

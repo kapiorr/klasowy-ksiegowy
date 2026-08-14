@@ -127,13 +127,17 @@ export function activityMiddleware(req, res, next) {
   let logged = false;
 
   res.on('finish', () => {
-    if (logged || !req.user) return;
+    if (logged) return;
     logged = true;
     const sukces = res.statusCode < 400;
+
+    // Loguj nieautoryzowane próby (401/403) nawet bez req.user
+    if (!req.user && res.statusCode !== 401 && res.statusCode !== 403) return;
+
     log({
-      uzytkownik_id: req.user.id,
+      uzytkownik_id: req.user?.id || null,
       ip: getIP(req),
-      akcja,
+      akcja: req.user ? akcja : `unauthorized_${akcja}`,
       zasob: urlPath,
       szczegoly: res.statusCode >= 400 ? `HTTP ${res.statusCode}` : null,
       sukces,

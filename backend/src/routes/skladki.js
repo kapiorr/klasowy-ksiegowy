@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { validateBody } from '../validate.js';
+
 import db from '../db.js';
 import { requireAuth, requireKsiegowy } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
@@ -104,11 +106,12 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // POST /skladki — tworzy składkę i przypisuje wszystkich uczniów
-router.post('/', requireKsiegowy, async (req, res) => {
+router.post('/', requireKsiegowy, validateBody({
+  nazwa: { type: 'string', required: true, max: 200 },
+  kwota_na_osobe: { type: 'number', required: true, min: 0.01, max: 99999 },
+  opis: { type: 'string', max: 2000 },
+}), async (req, res) => {
   const { nazwa, kwota_na_osobe, termin, opis } = req.body;
-  if (!nazwa || !kwota_na_osobe) {
-    return res.status(400).json({ error: 'Nazwa i kwota są wymagane' });
-  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { validateBody } from '../validate.js';
+
 import db from '../db.js';
 import { requireAuth, requireKsiegowy, requireKsiegowyOrPelny } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
@@ -42,7 +44,12 @@ router.get('/historia', requireKsiegowy, async (req, res) => {
 });
 
 // POST /wplaty
-router.post('/', requireKsiegowy, async (req, res) => {
+router.post('/', requireKsiegowy, validateBody({
+  skladka_id: { type: 'string', required: true },
+  uczen_id: { type: 'string', required: true },
+  kwota: { type: 'number', required: true, min: 0.01, max: 99999 },
+  notatka: { type: 'string', max: 500 },
+}), async (req, res) => {
   const { skladka_id, uczen_id, kwota, data, notatka } = req.body;
   if (!skladka_id || !kwota) {
     return res.status(400).json({ error: 'Brakuje wymaganych pól' });

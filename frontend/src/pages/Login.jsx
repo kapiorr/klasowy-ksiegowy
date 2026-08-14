@@ -57,7 +57,7 @@ export default function Login() {
     if (form.nowe_haslo.length < 8) { setError('Hasło min. 8 znaków'); return; }
     setError(''); setLoading(true);
     try {
-      await api.wymuszonaZmianaHasla(userId, form.nowe_haslo);
+      await api.wymuszonaZmianaHasla(form.nowe_haslo);
       // Po zmianie hasła — zaloguj normalnie
       const data = await api.login({ login: form.login, haslo: form.nowe_haslo });
       await login(data);

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { validateBody } from '../validate.js';
 import sharp from 'sharp';
 import { validateFile } from '../filecheck.js';
 import db from '../db.js';
@@ -81,7 +82,11 @@ router.get('/uczen/:id', requireKsiegowyOrPelny, async (req, res) => {
 });
 
 // POST /wyplaty
-router.post('/', requireKsiegowy, async (req, res) => {
+router.post('/', requireKsiegowy, validateBody({
+  skladka_id: { type: 'string', required: true },
+  kwota: { type: 'number', required: true, min: 0.01, max: 99999 },
+  opis: { type: 'string', required: true, max: 500 },
+}), async (req, res) => {
   const { skladka_id, kwota, opis, data, zalaczniki = [] } = req.body;
   if (!skladka_id || !kwota || !opis) {
     return res.status(400).json({ error: 'Brakuje wymaganych pól' });
@@ -100,6 +105,11 @@ router.post('/', requireKsiegowy, async (req, res) => {
     );
     const wyplata = result.rows[0];
 
+    // Waliduj wszystkie załączniki przed zapisem
+    const odrzucone = zalaczniki.filter(z => !validateFile(z.dane, z.typ, z.nazwa).ok).map(z => z.nazwa);
+    if (odrzucone.length > 0) {
+      return res.status(400).json({ error: `Niedozwolone typy plików: ${odrzucone.join(', ')}` });
+    }
     // Zapisz załączniki
     const nazwyZalacznikow = [];
     for (const z of zalaczniki) {
@@ -126,10 +136,29 @@ router.post('/', requireKsiegowy, async (req, res) => {
 // GET /wyplaty/:id/zalacznik/:zid
 router.get('/:id/zalacznik/:zid', requireAuth, async (req, res) => {
   try {
-    const result = await db.query(
-      'SELECT nazwa, dane, typ FROM wyplaty_zalaczniki WHERE id=$1 AND wyplata_id=$2',
-      [req.params.zid, req.params.id]
-    );
+    const { rola, id: userId, uczen_id } = req.user;
+    const isKsiegowy = ['admin', 'ksiegowy'].includes(rola);
+
+    let result;
+    if (isKsiegowy) {
+      // Admin/Ksiegowy — dostęp do wszystkich załączników
+      result = await db.query(
+        'SELECT z.nazwa, z.dane, z.typ FROM wyplaty_zalaczniki z WHERE z.id=$1 AND z.wyplata_id=$2',
+        [req.params.zid, req.params.id]
+      );
+    } else {
+      // Podglad/PodgladPelny — tylko składki do których przypisany uczeń należy
+      if (!uczen_id) return res.status(403).json({ error: 'Brak uprawnień' });
+      result = await db.query(
+        `SELECT z.nazwa, z.dane, z.typ
+         FROM wyplaty_zalaczniki z
+         JOIN wyplaty w ON w.id = z.wyplata_id
+         JOIN skladka_ucznowie su ON su.skladka_id = w.skladka_id AND su.uczen_id = $3
+         WHERE z.id=$1 AND z.wyplata_id=$2`,
+        [req.params.zid, req.params.id, uczen_id]
+      );
+    }
+
     const row = result.rows[0];
     if (!row) return res.status(404).json({ error: 'Brak załącznika' });
     res.setHeader('Content-Type', row.typ || 'application/octet-stream');
@@ -167,6 +196,11 @@ router.put('/:id', requireKsiegowy, async (req, res) => {
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
 
+    // Waliduj nowe załączniki przed zapisem
+    const odrzuconeEdit = zalaczniki.filter(z => !validateFile(z.dane, z.typ, z.nazwa).ok).map(z => z.nazwa);
+    if (odrzuconeEdit.length > 0) {
+      return res.status(400).json({ error: `Niedozwolone typy plików: ${odrzuconeEdit.join(', ')}` });
+    }
     // Zapisz nowe załączniki
     const nazwyNowych = [];
     for (const z of zalaczniki) {
