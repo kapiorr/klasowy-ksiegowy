@@ -96,7 +96,6 @@ router.post('/restore', requireAdmin, async (req, res) => {
         [r.id, r.skladka_id, r.uczen_id, r.kwota, r.data, r.notatka, r.created_at]);
     }
     for (const r of wyplaty) {
-      const dane = r.zalacznik_dane ? Buffer.from(r.zalacznik_dane, 'base64') : null;
       await client.query('INSERT INTO wyplaty (id, skladka_id, kwota, opis, data, created_at) VALUES ($1,$2,$3,$4,$5,$6)',
         [r.id, r.skladka_id, r.kwota, r.opis, r.data, r.created_at]);
     }
@@ -208,14 +207,15 @@ export default router;
 router.get('/skladka/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
-    const [skladka, skladkaUcznowie, wplaty, wyplatyRaw] = await Promise.all([
+    const [skladka, skladkaUcznowie, wplaty, wyplatyRaw, wyplatyZalaczniki] = await Promise.all([
       db.query('SELECT * FROM skladki WHERE id=$1', [id]),
       db.query('SELECT * FROM skladka_ucznowie WHERE skladka_id=$1', [id]),
       db.query('SELECT * FROM wplaty WHERE skladka_id=$1 ORDER BY created_at', [id]),
-      db.query(
-        'SELECT id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at FROM wyplaty WHERE skladka_id=$1 ORDER BY created_at',
-        [id]
-      ),
+      db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty WHERE skladka_id=$1 ORDER BY created_at', [id]),
+      db.query(`SELECT z.id, z.wyplata_id, z.nazwa, z.typ, encode(z.dane, 'base64') AS dane_b64, z.created_at
+                FROM wyplaty_zalaczniki z
+                JOIN wyplaty w ON w.id = z.wyplata_id
+                WHERE w.skladka_id=$1 ORDER BY z.created_at`, [id]),
     ]);
 
     if (!skladka.rows[0]) return res.status(404).json({ error: 'Nie znaleziono składki' });
@@ -238,6 +238,7 @@ router.get('/skladka/:id', requireAdmin, async (req, res) => {
         skladka_ucznowie: skladkaUcznowie.rows,
         wplaty: wplaty.rows,
         wyplaty,
+        wyplaty_zalaczniki: wyplatyZalaczniki.rows,
       },
     };
 
@@ -258,7 +259,7 @@ router.post('/skladka/restore', requireAdmin, async (req, res) => {
     if (payload.version !== 1 || payload.type !== 'skladka') {
       return res.status(400).json({ error: 'Nieprawidłowy format backupu składki' });
     }
-    const { skladka, ucznowie, skladka_ucznowie, wplaty, wyplaty } = payload.data;
+    const { skladka, ucznowie, skladka_ucznowie, wplaty, wyplaty, wyplaty_zalaczniki = [] } = payload.data;
 
     await client.query('BEGIN');
 
@@ -299,11 +300,21 @@ router.post('/skladka/restore', requireAdmin, async (req, res) => {
 
     // Wypłaty
     for (const w of wyplaty) {
-      const dane = w.zalacznik_dane ? Buffer.from(w.zalacznik_dane, 'base64') : null;
       await client.query(
-        `INSERT INTO wyplaty (id, skladka_id, kwota, opis, data, zalacznik_nazwa, zalacznik_typ, zalacznik_dane, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (id) DO NOTHING`,
-        [w.id, skladkaId, w.kwota, w.opis, w.data, w.zalacznik_nazwa, w.zalacznik_typ, dane, w.created_at]
+        `INSERT INTO wyplaty (id, skladka_id, kwota, opis, data, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
+        [w.id, skladkaId, w.kwota, w.opis, w.data, w.created_at]
+      );
+    }
+
+    // Załączniki do wypłat
+    for (const z of wyplaty_zalaczniki) {
+      const dane = z.dane_b64 ? Buffer.from(z.dane_b64, 'base64') : null;
+      if (!dane) continue;
+      await client.query(
+        `INSERT INTO wyplaty_zalaczniki (id, wyplata_id, nazwa, typ, dane, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`,
+        [z.id, z.wyplata_id, z.nazwa, z.typ, dane, z.created_at]
       );
     }
 

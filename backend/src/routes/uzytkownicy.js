@@ -265,43 +265,61 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 });
 
 // POST /uzytkownicy/import-csv
-// CSV: login;haslo;rola;email;imie;nazwisko
+// CSV: login;haslo;rola;email;imie;nazwisko;telefon;sms_powiadomienia
 router.post('/import-csv', requireAdmin, async (req, res) => {
   const { csv } = req.body;
   if (!csv) return res.status(400).json({ error: 'Brak danych CSV' });
 
   const lines = csv.trim().split('\n').filter(Boolean);
+  // Pomiń nagłówek jeśli istnieje
+  const dataLines = lines[0].toLowerCase().startsWith('login') ? lines.slice(1) : lines;
+
   const results = { dodano: 0, pominieto: 0, bledy: [] };
   const client = await db.connect();
 
   try {
     await client.query('BEGIN');
-    for (let i = 0; i < lines.length; i++) {
-      const cols = lines[i].split(';').map(s => s.trim().replace(/^"|"$/g, ''));
-      const [login, haslo, rola = 'podglad', email = '', imie = '', nazwisko = ''] = cols;
+    for (let i = 0; i < dataLines.length; i++) {
+      const cols = dataLines[i].split(';').map(s => s.trim().replace(/^"|"$/g, ''));
+      const [
+        login = '', haslo = '', rola = 'podglad',
+        email = '', imie = '', nazwisko = '',
+        telefon = '', sms_pow = '',
+      ] = cols;
 
       if (!login || !haslo) {
         results.bledy.push(`Wiersz ${i + 1}: brak loginu lub hasła`);
         results.pominieto++;
         continue;
       }
-      if (!['ksiegowy', 'podglad', 'podglad_pelny'].includes(rola)) {
-        results.bledy.push(`Wiersz ${i + 1}: nieznana rola "${rola}"`);
+      if (!['admin', 'ksiegowy', 'podglad', 'podglad_pelny'].includes(rola)) {
+        results.bledy.push(`Wiersz ${i + 1}: nieznana rola "${rola}" (dozwolone: admin, ksiegowy, podglad_pelny, podglad)`);
         results.pominieto++;
         continue;
       }
+      if (email) {
+        const emailErr = walidujEmail(email);
+        if (emailErr) { results.bledy.push(`Wiersz ${i + 1}: ${emailErr}`); results.pominieto++; continue; }
+      }
+      const telFormatted = telefon ? formatTelefon(telefon) : null;
+      if (telefon && !telFormatted) {
+        results.bledy.push(`Wiersz ${i + 1}: nieprawidłowy numer telefonu "${telefon}"`);
+        results.pominieto++;
+        continue;
+      }
+      const smsEnabled = ['tak', 'true', '1', 'yes'].includes(sms_pow.toLowerCase());
 
       try {
         const haslo_hash = await hashHaslo(haslo);
         await client.query(
-          `INSERT INTO uzytkownicy (login, haslo_hash, rola, email, imie, nazwisko, force_password_change)
-           VALUES ($1,$2,$3,$4,$5,$6,TRUE)`,
-          [login, haslo_hash, rola, email || null, imie || null, nazwisko || null]
+          `INSERT INTO uzytkownicy (login, haslo_hash, rola, email, imie, nazwisko, telefon, sms_powiadomienia, force_password_change)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)`,
+          [login, haslo_hash, rola, email || null, imie || null, nazwisko || null, telFormatted, smsEnabled]
         );
         results.dodano++;
       } catch (e) {
         if (e.code === '23505') {
-          results.bledy.push(`Wiersz ${i + 1}: login "${login}" już istnieje`);
+          results.bledy.push(`Wiersz ${i + 1}: login lub email "${login}" już istnieje`);
         } else {
           results.bledy.push(`Wiersz ${i + 1}: ${e.message}`);
         }
@@ -366,12 +384,26 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
 // GET /uzytkownicy/export-csv
 router.get('/export-csv', requireKsiegowy, async (req, res) => {
   try {
-    const result = await db.query('SELECT login, imie, nazwisko, rola, email FROM uzytkownicy ORDER BY login');
+    const result = await db.query(
+      `SELECT u.login, u.imie, u.nazwisko, u.rola, u.email, u.telefon, u.sms_powiadomienia,
+              uc.imie AS uczen_imie, uc.nazwisko AS uczen_nazwisko
+       FROM uzytkownicy u
+       LEFT JOIN ucznowie uc ON uc.id = u.uczen_id
+       ORDER BY u.login`
+    );
     const bom = '\uFEFF';
-    const header = 'Login;Imie;Nazwisko;Rola;Email\n';
-    const rows = result.rows.map(r =>
-      [r.login, r.imie || '', r.nazwisko || '', r.rola, r.email || ''].join(';')
-    ).join('\n');
+    const header = 'Login;Imie;Nazwisko;Rola;Email;Telefon;SMS_powiadomienia;Uczen_imie;Uczen_nazwisko\n';
+    const rows = result.rows.map(r => [
+      r.login,
+      r.imie || '',
+      r.nazwisko || '',
+      r.rola,
+      r.email || '',
+      r.telefon || '',
+      r.sms_powiadomienia ? 'tak' : 'nie',
+      r.uczen_imie || '',
+      r.uczen_nazwisko || '',
+    ].join(';')).join('\n');
     res.setHeader('Content-Type', 'text/csv;charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="uzytkownicy-${new Date().toISOString().split('T')[0]}.csv"`);
     res.send(bom + header + rows);

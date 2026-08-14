@@ -306,7 +306,8 @@ function ImportModal({ onClose, onDone }) {
         <div className="p-5 space-y-4">
           <div className="bg-sage-50 dark:bg-gray-700/50 rounded-xl px-4 py-3 font-body text-xs text-sage-600 space-y-1">
             <div className="font-500">Format pliku CSV (separator: średnik):</div>
-            <div className="font-mono">login;haslo;rola;email;imie;nazwisko</div>
+            <div className="font-mono text-xs break-all">login;haslo;rola;email;imie;nazwisko;telefon;sms_powiadomienia</div>
+            <div className="font-body text-xs text-sage-400 mt-1">Rola: admin / ksiegowy / podglad_pelny / podglad &nbsp;·&nbsp; SMS: tak / nie &nbsp;·&nbsp; Nagłówek opcjonalny</div>
             <div className="font-mono text-sage-400 dark:text-gray-500">jan.k;haslo123;podglad;jan@szkola.pl;Jan;Kowalski</div>
             <div className="mt-1 space-y-0.5">
               <div>• rola: <span className="font-mono">ksiegowy</span> / <span className="font-mono">podglad_pelny</span> / <span className="font-mono">podglad</span> (domyślnie podglad)</div>
@@ -323,7 +324,7 @@ function ImportModal({ onClose, onDone }) {
             <label className="block font-body text-sm font-500 text-ink mb-1">lub wklej zawartość</label>
             <textarea value={csv} onChange={e => setCsv(e.target.value)} rows={4}
               className="w-full border border-sage-200 rounded-xl px-4 py-2.5 font-mono text-xs text-ink focus:outline-none focus:border-sage-600 resize-none"
-              placeholder="login;haslo;rola;email;imie;nazwisko" />
+              placeholder="login;haslo;rola;email;imie;nazwisko;telefon;sms_powiadomienia" />
           </div>
           {result && (
             <div className={`rounded-xl px-4 py-3 font-body text-sm space-y-1 ${result.blad ? 'bg-rose-50 text-rose-600' : 'bg-sage-100 text-sage-700'}`}>
