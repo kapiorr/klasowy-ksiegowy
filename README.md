@@ -9,17 +9,17 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Składki
 - Tworzenie i zarządzanie składkami (wycieczki, ubezpieczenia, imprezy klasowe itp.)
 - Śledzenie wpłat per uczeń z historią zmian
-- Wypłaty z możliwością dodania załącznika (faktura, rachunek)
+- Wypłaty z możliwością dodania wielu załączników (faktury, rachunki — obrazki kompresowane do WebP 1024px)
 - Pasek postępu i saldo (zebrano − wypłaty)
 - Archiwizacja składek — zarchiwizowana składka jest tylko do odczytu
 - Eksport wpłat do CSV
-- Backup i restore pojedynczej składki (JSON)
+- Backup i restore pojedynczej składki (JSON z załącznikami base64)
 
 ### Uczniowie
 - Lista uczniów klasy posortowana alfabetycznie
 - Możliwość dezaktywacji — nieaktywny uczeń nie jest dodawany do nowych składek, ale jego historia pozostaje
 - Import uczniów z pliku CSV (`imie;nazwisko`)
-- Admin i Podgląd pełny mogą przeglądać historię wszystkich wpłat ucznia (kliknięcie "Wpłaty" przy uczniu)
+- Admin, Księgowy i Podgląd pełny mogą przeglądać historię wszystkich wpłat ucznia (kliknięcie "Wpłaty" przy uczniu)
 
 ### Użytkownicy i role
 
@@ -34,7 +34,8 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Login i email muszą być unikalne — walidacja przy tworzeniu i edycji użytkownika
 - Pola użytkownika: login, hasło, rola, imię, nazwisko, email (opcjonalny, walidowany), telefon (opcjonalny, walidowany), powiązany uczeń, sms_powiadomienia (bool)
 - Przypisanie ucznia możliwe dla dowolnej roli; wymagane tylko dla roli `podglad`
-- Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko`)
+- Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko;telefon;sms_powiadomienia`) — nagłówek opcjonalny, rola: admin/ksiegowy/podglad_pelny/podglad
+- Eksport użytkowników do CSV z pełnymi danymi (telefon, SMS, powiązany uczeń)
 - Wysyłka maila powitalnego z linkiem do ustawienia hasła — przy zakładaniu konta lub z poziomu edycji
   - Czas ważności linku do wyboru: 15 min / 1h / 2h / 6h / 1 dzień / 2 dni / 5 dni / 7 dni
 - Rola `podglad` wymaga obowiązkowo przypisania ucznia
@@ -180,22 +181,24 @@ APP_URL=https://twojadomena.pl
 # Godzina automatycznego backupu (0-23, czas lokalny kontenera)
 BACKUP_HOUR=5
 
-# Web Push (PWA powiadomienia push) — wygeneruj: node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)"
-# Pozostaw puste aby wyłączyć push notifications
-# SMSAPI — wysyłka SMS (opcjonalne)
-# Token OAuth: https://ssl.smsapi.pl/react/oauth/manage
-SMSAPI_TOKEN=
-# Pole nadawcy (maks. 11 znaków, zarejestrowane w panelu SMSAPI)
-SMSAPI_FROM=Ksiegowy
-
-VAPID_PUBLIC_KEY=
-VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:admin@twojadomena.pl
-
 # Szyfrowanie backupów AES-256-GCM — wygeneruj: openssl rand -hex 32
 # Pozostaw puste aby backupy były niezaszyfrowane (plaintext JSON)
 # UWAGA: bez tego klucza nie odszyfrsujesz zaszyfrowanych backupów!
 BACKUP_ENCRYPTION_KEY=
+
+# SMSAPI — wysyłka SMS (opcjonalne)
+# Token OAuth: https://ssl.smsapi.pl/react/oauth/manage
+# Pozostaw puste aby wyłączyć SMS
+SMSAPI_TOKEN=
+# Pole nadawcy (maks. 11 znaków, zarejestrowane w panelu SMSAPI)
+SMSAPI_FROM=Ksiegowy
+
+# Web Push (PWA powiadomienia push)
+# Wygeneruj: node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)"
+# Pozostaw puste aby wyłączyć push notifications
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:admin@twojadomena.pl
 
 # Dane do wpłat — wyświetlane użytkownikowi z rolą Podgląd na dashboardzie
 # Pozostaw puste jeśli nie chcesz wyświetlać
