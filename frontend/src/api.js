@@ -113,18 +113,7 @@ export const api = {
   getBlokady: () => request('/logi/blokady'),
   deleteBlokada: (id) => request(`/logi/blokady/${id}`, { method: 'DELETE' }),
 
-  openZalacznik: async (id) => {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/wyplaty/${id}/zalacznik`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) { handleUnauthorized(); return; }
-    if (!res.ok) throw new Error('Błąd pobierania załącznika');
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  },
+
 };
 
 export const mailingSkladka = (id, kanaly, email_ids, sms_ids) => request(`/mailing/skladka/${id}`, { method: 'POST', body: JSON.stringify({ kanaly, email_ids, sms_ids }) });
@@ -138,6 +127,7 @@ export const sendMailingZaleglosci = (ids, kanaly, email_ids, sms_ids) => reques
 export const downloadRaportSkladkiPdf = async (id, nazwa) => {
   const token = localStorage.getItem('token');
   const res = await fetch(`/api/raport/skladka/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Blad generowania raportu');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -151,6 +141,7 @@ export const downloadRaportSkladkiPdf = async (id, nazwa) => {
 export const downloadRaportPdf = async () => {
   const token = localStorage.getItem('token');
   const res = await fetch('/api/raport/pdf', { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Błąd generowania raportu');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -164,6 +155,8 @@ export const downloadRaportPdf = async () => {
 export const downloadUczniowieCsv = async () => {
   const token = localStorage.getItem('token');
   const res = await fetch('/api/ucznowie/export-csv', { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) { handleUnauthorized(); return; }
+  if (!res.ok) throw new Error('Błąd eksportu');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;
@@ -174,6 +167,8 @@ export const downloadUczniowieCsv = async () => {
 export const downloadUzytkownicyCsv = async () => {
   const token = localStorage.getItem('token');
   const res = await fetch('/api/uzytkownicy/export-csv', { headers: { Authorization: `Bearer ${token}` } });
+  if (res.status === 401) { handleUnauthorized(); return; }
+  if (!res.ok) throw new Error('Błąd eksportu');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url;

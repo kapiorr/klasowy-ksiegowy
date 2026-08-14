@@ -357,7 +357,7 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
     );
 
     // Wygeneruj nowy token — czas ważności z body (domyślnie 15 minut)
-    const minuty = parseInt(req.body.link_expiry_minutes || 15);
+    const minuty = Math.min(parseInt(req.body.link_expiry_minutes || 15), 10080); // max 7 dni
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const wygasaO = new Date(Date.now() + minuty * 60 * 1000);
