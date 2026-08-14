@@ -139,18 +139,20 @@ cp .env.example .env
 Edytuj `.env`:
 
 ```env
-# ─────────────────────────────────────────────────────────
-# Generowanie losowych stringów:
-#   openssl rand -hex 32     → 64-znakowy string hex
-#   openssl rand -base64 32  → ~44-znakowy string base64
+# ─────────────────────────────────────────────────────────────────────────────
+# Generowanie losowych stringów (wykonaj w terminalu):
+#
+#   openssl rand -hex 32     → 64-znakowy string hex (dla JWT_SECRET, PEPPER, MFA_ENCRYPTION_KEY)
+#   openssl rand -base64 32  → ~44-znakowy string base64 (alternatywa)
+#
 # Każda zmienna powinna mieć INNY, unikalny string!
-# ─────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Konto administratora (tworzone automatycznie przy pierwszym uruchomieniu)
-ADMIN_LOGIN=admin
-ADMIN_HASLO=bezpieczne_haslo
+ADMIN_LOGIN=ksiegowy
+ADMIN_HASLO=zmien_na_silne_haslo
 
-# JWT — wygeneruj: openssl rand -hex 32
+# JWT — podpisywanie tokenów sesji — wygeneruj: openssl rand -hex 32
 JWT_SECRET=
 
 # Bezpieczeństwo haseł (pieprz) — wygeneruj: openssl rand -hex 32
@@ -163,23 +165,31 @@ MFA_ENCRYPTION_KEY=
 
 # PostgreSQL
 POSTGRES_USER=ksiegowy
-POSTGRES_PASSWORD=haslo_do_bazy
+POSTGRES_PASSWORD=zmien_na_silne_haslo_bazy
 POSTGRES_DB=klasowy_ksiegowy
 # DATABASE_URL jest składane automatycznie przez docker-compose — nie podawaj go tutaj
+# SSL dla bazy danych (ustaw na true tylko przy zewnętrznej bazie np. AWS RDS)
+DB_SSL=false
+# DB_SSL_REJECT_UNAUTHORIZED=true
 
-# Email (SMTP) — opcjonalne, wymagane do resetowania hasła, zaproszeń i mailingu
+# Email (Mailgun SMTP) — opcjonalne, wymagane do resetowania hasła i zaproszeń
 EMAIL_SERVER=smtp.mailgun.org
 EMAIL_SERVER_PORT=587
 EMAIL_SERVER_USER=postmaster@twojadomena.pl
 EMAIL_SERVER_PASSWORD=
 EMAIL_FROM=noreply@twojadomena.pl
-ADMIN_EMAIL=admin@twojadomena.pl
 
-# URL aplikacji (używany w linkach w mailach)
+# URL aplikacji (używany w linkach w mailach i jako dozwolone źródło CORS)
 APP_URL=https://twojadomena.pl
+
+# Email admina — alerty bezpieczeństwa (blokady, nieudane logowania)
+ADMIN_EMAIL=admin@twojadomena.pl
 
 # Godzina automatycznego backupu (0-23, czas lokalny kontenera)
 BACKUP_HOUR=5
+
+# Katalog backupów (domyślnie /app/backups — zamontowany jako volumen w docker-compose)
+# BACKUP_DIR=/app/backups
 
 # Szyfrowanie backupów AES-256-GCM — wygeneruj: openssl rand -hex 32
 # Pozostaw puste aby backupy były niezaszyfrowane (plaintext JSON)
@@ -187,25 +197,23 @@ BACKUP_HOUR=5
 BACKUP_ENCRYPTION_KEY=
 
 # SMSAPI — wysyłka SMS (opcjonalne)
-# Token OAuth: https://ssl.smsapi.pl/react/oauth/manage
+# Token OAuth z panelu: https://ssl.smsapi.pl/react/oauth/manage
 # Pozostaw puste aby wyłączyć SMS
 SMSAPI_TOKEN=
-# Pole nadawcy (maks. 11 znaków, zarejestrowane w panelu SMSAPI)
+# Pole nadawcy (maks. 11 znaków, musi być zarejestrowane w panelu SMSAPI)
 SMSAPI_FROM=Ksiegowy
 
 # Web Push (PWA powiadomienia push)
-# Wygeneruj: node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)"
-# Pozostaw puste aby wyłączyć push notifications
+# Wygeneruj: docker exec ksiegowy_backend node -e "const wp=require('web-push'); const k=wp.generateVAPIDKeys(); console.log(k)"
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:admin@twojadomena.pl
 
-# Dane do wpłat — wyświetlane użytkownikowi z rolą Podgląd na dashboardzie
-# Pozostaw puste jeśli nie chcesz wyświetlać
-PAYMENT_ACCOUNT=12 3456 7890 1234 5678 9012 3456
-PAYMENT_PHONE=600 123 456
+# Dane do wpłat (wyświetlane użytkownikowi z rolą Podgląd na dashboardzie)
+PAYMENT_ACCOUNT=
+PAYMENT_PHONE=
 
-# Informacje o klasie wyświetlane na stronie logowania i w mailach (opcjonalne)
+# Informacje o klasie wyświetlane na stronie logowania
 CLASS_NAME=VI
 SCHOOL_NAME=SP nr 1
 ```
@@ -284,9 +292,11 @@ klasowy-ksiegowy/
 ## 🔐 Bezpieczeństwo — uwagi
 
 - Nigdy nie zmieniaj `PEPPER` ani `MFA_ENCRYPTION_KEY` po pierwszym uruchomieniu — unieważni wszystkie hasła/MFA
-- `SMSAPI_TOKEN` — jeśli ustawiony, SMS jest dostępny w mailingach; użytkownik może sam wyłączyć w Ustawieniach; admin może wymusić wysyłkę
-- `BACKUP_ENCRYPTION_KEY` — jeśli ustawiony, wszystkie backupy są szyfrowane AES-256-GCM; bez tego klucza zaszyfrowane backupy są nie do odczytania; przechowuj klucz osobno od backupów
 - `JWT_SECRET` można zmienić — spowoduje wylogowanie wszystkich użytkowników
+- `APP_URL` musi być ustawiony — używany jako dozwolone źródło CORS oraz w linkach w mailach
+- `DB_SSL=true` — włącz tylko przy zewnętrznej bazie danych (np. AWS RDS); lokalny Docker nie wymaga
+- `BACKUP_ENCRYPTION_KEY` — jeśli ustawiony, wszystkie backupy są szyfrowane AES-256-GCM; bez tego klucza zaszyfrowane backupy są nie do odczytania; przechowuj klucz osobno od backupów
+- `SMSAPI_TOKEN` — jeśli ustawiony, SMS jest dostępny w mailingach; użytkownik może sam wyłączyć w Ustawieniach; admin może wymusić wysyłkę
 - Zalecane wdrożenie za **Cloudflare Tunnel** — nie wymaga otwierania portów na routerze
 - Wszystkie połączenia wewnętrzne (backend↔baza) odbywają się wewnątrz sieci Docker
 
