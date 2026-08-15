@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { hashHaslo } from '../crypto.js';
+import { walidujHasloHIBP } from '../hibp.js';
 import { requireAuth, requireKsiegowy, requireAdmin } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
 import { sendWelcome } from '../mailer.js';
@@ -36,7 +37,7 @@ router.get('/', requireKsiegowy, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.id, u.login, u.imie, u.nazwisko, u.rola, u.uczen_id, u.email, u.telefon,
-              u.mfa_enabled, u.mfa_wymuszone, u.force_password_change, u.sms_powiadomienia,
+              u.mfa_enabled, u.mfa_wymuszone, u.force_password_change, u.sms_powiadomienia, u.pomijaj_hibp,
               uc.imie AS uczen_imie, uc.nazwisko AS uczen_nazwisko
        FROM uzytkownicy u
        LEFT JOIN ucznowie uc ON uc.id = u.uczen_id
@@ -87,7 +88,7 @@ router.post('/', async (req, res) => {
       `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia`,
-      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon), req.body.sms_powiadomienia || false]
+      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon), req.body.sms_powiadomienia || false, pomijajHIBP]
     );
     await log({ uzytkownik_id: req.user?.id, ip: getIP(req), akcja: 'add_uzytkownik', zasob: req.originalUrl,
       szczegoly: `${login} | rola: ${rola}${imie || nazwisko ? ' | ' + [imie, nazwisko].filter(Boolean).join(' ') : ''}` });

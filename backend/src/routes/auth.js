@@ -7,6 +7,7 @@ import { generateSecret, generate, verify as verifyTotp, generateURI } from 'otp
 import qrcode from 'qrcode';
 import db from '../db.js';
 import { hashHaslo, verifyHaslo, generateResetToken, hashResetToken } from '../crypto.js';
+import { walidujHasloHIBP } from '../hibp.js';
 import { sendResetEmail } from '../mailer.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -328,7 +329,8 @@ router.post('/wymuszona-zmiana-hasla', requireAuth, async (req, res) => {
   const { nowe_haslo } = req.body;
   const user_id = req.user.id; // zawsze ID zalogowanego użytkownika
   if (!nowe_haslo) return res.status(400).json({ error: 'Brakuje nowego hasła' });
-  if (nowe_haslo.length < 8) return res.status(400).json({ error: 'Haslo min. 8 znakow' });
+  if (nowe_haslo.length < 8) return res.status(400).json({ error: 'Hasło min. 8 znaków' });
+
 
   try {
     const result = await db.query(

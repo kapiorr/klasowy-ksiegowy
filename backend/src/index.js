@@ -191,6 +191,7 @@ async function migrate() {
     `CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_unique_endpoint
      ON push_subscriptions (uzytkownik_id, (subscription->>'endpoint'))`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sms_powiadomienia BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_nazwa`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_dane`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_typ`,

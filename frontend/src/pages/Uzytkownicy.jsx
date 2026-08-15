@@ -15,7 +15,7 @@ const EXPIRY_OPTIONS = [
   { value: 10080,label: '7 dni' },
 ];
 function DodajModal({ ucznowie, onClose, onSave }) {
-  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', telefon: '', imie: '', nazwisko: '', sms_powiadomienia: false });
+  const [form, setForm] = useState({ login: '', haslo: '', rola: 'podglad', uczen_id: '', email: '', telefon: '', imie: '', nazwisko: '', sms_powiadomienia: false, pomijaj_hibp: false });
   const [wyslijMail, setWyslijMail] = useState(false);
   const [linkExpiry, setLinkExpiry] = useState(15);
   const [saving, setSaving] = useState(false);
@@ -103,6 +103,11 @@ function DodajModal({ ucznowie, onClose, onSave }) {
               <span className="font-body text-sm text-ink dark:text-gray-100">Wysyłaj powiadomienia SMS</span>
             </label>
           )}
+          <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.pomijaj_hibp || false} onChange={e => setForm(f => ({ ...f, pomijaj_hibp: e.target.checked }))}
+                className="rounded border-sage-300" />
+              <span className="font-body text-sm text-ink dark:text-gray-100">Pomiń sprawdzanie hasła w bazie wycieków <span className="text-sage-400 text-xs">(HIBP)</span></span>
+            </label>
           <div>
               <label className="block font-body text-sm font-500 text-ink mb-1">
                 Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
@@ -221,6 +226,11 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
               <span className="font-body text-sm text-ink dark:text-gray-100">Wysyłaj powiadomienia SMS</span>
             </label>
           )}
+          <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={form.pomijaj_hibp || false} onChange={e => setForm(f => ({ ...f, pomijaj_hibp: e.target.checked }))}
+                className="rounded border-sage-300" />
+              <span className="font-body text-sm text-ink dark:text-gray-100">Pomiń sprawdzanie hasła w bazie wycieków <span className="text-sage-400 text-xs">(HIBP)</span></span>
+            </label>
           <div>
               <label className="block font-body text-sm font-500 text-ink mb-1">
                 Powiązany uczeń {form.rola === 'podglad' ? <span className="text-rose-400 text-xs">* wymagane</span> : <span className="text-sage-400 text-xs">(opcjonalne)</span>}
