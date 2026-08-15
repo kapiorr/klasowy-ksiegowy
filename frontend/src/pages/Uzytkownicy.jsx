@@ -158,6 +158,8 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
     uczen_id: user.uczen_id || '',
     imie: user.imie || '',
     nazwisko: user.nazwisko || '',
+    sms_powiadomienia: user.sms_powiadomienia || false,
+    pomijaj_hibp: user.pomijaj_hibp || false,
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');

@@ -7,7 +7,7 @@ import { generateSecret, generate, verify as verifyTotp, generateURI } from 'otp
 import qrcode from 'qrcode';
 import db from '../db.js';
 import { hashHaslo, verifyHaslo, generateResetToken, hashResetToken } from '../crypto.js';
-import { walidujHasloHIBP } from '../hibp.js';
+import { walidujHasloHIBP, sprawdzHIBP } from '../hibp.js';
 import { sendResetEmail } from '../mailer.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -113,6 +113,18 @@ router.post('/login', async (req, res) => {
     // Log udanego logowania
     await log({ uzytkownik_id: user.id, login_proba: login, ip, akcja: 'login_ok', sukces: true });
 
+    // Pierwsze logowanie po założeniu konta — sprawdź HIBP w tle (nie blokuje odpowiedzi)
+    if (!user.pomijaj_hibp && user.hibp_sprawdzono_at === null) {
+      sprawdzHIBP(haslo).then(wynik => {
+        if (wynik !== null) {
+          db.query(
+            'UPDATE uzytkownicy SET hibp_wycieklo=$1, hibp_sprawdzono_at=NOW() WHERE id=$2',
+            [wynik.wyciekło, user.id]
+          ).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+
     res.json({
       token,
       user: { id: user.id, login: user.login, rola: user.rola, uczen_id: user.uczen_id, mfaSetupRequired },
@@ -167,7 +179,11 @@ router.post('/zmien-haslo', requireAuth, async (req, res) => {
     if (!valid) return res.status(401).json({ error: 'Nieprawidłowe stare hasło' });
 
     const haslo_hash = await hashHaslo(nowe_haslo);
-    await db.query('UPDATE uzytkownicy SET haslo_hash=$1 WHERE id=$2', [haslo_hash, user.id]);
+    const hibpW1 = await sprawdzHIBP(nowe_haslo);
+    await db.query(
+      `UPDATE uzytkownicy SET haslo_hash=$1, hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL WHERE id=$3`,
+      [haslo_hash, hibpW1?.wyciekło ?? null, user.id]
+    );
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'zmiana_hasla', sukces: true });
     res.json({ ok: true });
   } catch (err) {
@@ -219,7 +235,11 @@ router.post('/reset-hasla/ustaw', async (req, res) => {
     const tokenRow = result.rows[0];
     const haslo_hash = await hashHaslo(nowe_haslo);
 
-    await db.query('UPDATE uzytkownicy SET haslo_hash=$1, awaiting_password_reset=FALSE, sessions_invalidated_at=NOW() WHERE id=$2', [haslo_hash, tokenRow.uzytkownik_id]);
+    const hibpW2 = await sprawdzHIBP(nowe_haslo);
+    await db.query(
+      `UPDATE uzytkownicy SET haslo_hash=$1, awaiting_password_reset=FALSE, sessions_invalidated_at=NOW(), hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL WHERE id=$3`,
+      [haslo_hash, hibpW2?.wyciekło ?? null, tokenRow.uzytkownik_id]
+    );
     await db.query('UPDATE tokeny_reset SET wykorzystany=TRUE WHERE id=$1', [tokenRow.id]);
 
     res.json({ ok: true });
@@ -355,3 +375,39 @@ router.post('/wymuszona-zmiana-hasla', requireAuth, async (req, res) => {
 });
 
 export default router;
+
+// GET /auth/hibp-status — stan HIBP dla zalogowanego usera
+router.get('/hibp-status', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at FROM uzytkownicy WHERE id=$1',
+      [req.user.id]
+    );
+    const u = result.rows[0];
+    if (!u) return res.json({ show: false });
+
+    // Pokaż kafelek jeśli:
+    // 1. hibp_wycieklo = true
+    // 2. user nie zamknął ALBO zamknął >5 dni temu
+    const dismissed = u.hibp_dismissed_at ? new Date(u.hibp_dismissed_at) : null;
+    const piecDniTemu = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const show = u.hibp_wycieklo === true && (!dismissed || dismissed < piecDniTemu);
+
+    res.json({ show, sprawdzono_at: u.hibp_sprawdzono_at });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// POST /auth/hibp-dismiss — user zamyka kafelek
+router.post('/hibp-dismiss', requireAuth, async (req, res) => {
+  try {
+    await db.query(
+      'UPDATE uzytkownicy SET hibp_dismissed_at = NOW() WHERE id=$1',
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});

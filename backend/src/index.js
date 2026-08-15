@@ -23,6 +23,9 @@ import pushRouter from './routes/push.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy — aplikacja działa za Cloudflare Tunnel / nginx
+app.set('trust proxy', 1);
+
 // Nagłówki bezpieczeństwa
 app.use(helmet({
   contentSecurityPolicy: false, // CSP ustawiony przez nginx
@@ -192,6 +195,9 @@ async function migrate() {
      ON push_subscriptions (uzytkownik_id, (subscription->>'endpoint'))`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sms_powiadomienia BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_wycieklo BOOLEAN`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_sprawdzono_at TIMESTAMPTZ`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_dismissed_at TIMESTAMPTZ`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_nazwa`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_dane`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_typ`,

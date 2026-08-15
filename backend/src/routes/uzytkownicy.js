@@ -66,6 +66,9 @@ router.post('/', async (req, res) => {
     }
 
     const haslo_hash = await hashHaslo(haslo);
+    const pomijajHIBP = !!req.body.pomijaj_hibp;
+    const hibpErr = await walidujHasloHIBP(haslo, pomijajHIBP);
+    if (hibpErr) return res.status(400).json({ error: hibpErr });
 
     // Walidacja formatu email i telefonu
     const emailErr = walidujEmail(email);
@@ -85,9 +88,9 @@ router.post('/', async (req, res) => {
     }
 
     const result = await db.query(
-      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia`,
+      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia, pomijaj_hibp)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia, pomijaj_hibp`,
       [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon), req.body.sms_powiadomienia || false, pomijajHIBP]
     );
     await log({ uzytkownik_id: req.user?.id, ip: getIP(req), akcja: 'add_uzytkownik', zasob: req.originalUrl,
@@ -131,7 +134,7 @@ router.patch('/me/sms', requireAuth, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   const { rola, email, uczen_id, imie, nazwisko } = req.body;
   try {
-    const stary = await db.query('SELECT login, rola, email, imie, nazwisko, telefon, uczen_id FROM uzytkownicy WHERE id=$1', [req.params.id]);
+    const stary = await db.query('SELECT login, rola, email, imie, nazwisko, telefon, uczen_id, sms_powiadomienia, pomijaj_hibp FROM uzytkownicy WHERE id=$1', [req.params.id]);
     const staryRow = stary.rows[0];
 
     // Rola podglad wymaga przypisanego ucznia
@@ -174,10 +177,18 @@ router.patch('/:id', requireAdmin, async (req, res) => {
         uczen_id = $3,
         imie = $4,
         nazwisko = $5,
-        telefon = $7
+        telefon = $7,
+        sms_powiadomienia = $8,
+        pomijaj_hibp = $9
        WHERE id = $6
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, mfa_enabled, mfa_wymuszone, force_password_change`,
-      [rola || null, email || null, uczen_id || null, imie || null, nazwisko || null, req.params.id, req.body.telefon !== undefined ? formatTelefon(req.body.telefon) : staryRow?.telefon || null]
+       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia, pomijaj_hibp, mfa_enabled, mfa_wymuszone, force_password_change`,
+      [
+        rola || null, email || null, uczen_id || null, imie || null, nazwisko || null,
+        req.params.id,
+        req.body.telefon !== undefined ? formatTelefon(req.body.telefon) : staryRow?.telefon || null,
+        req.body.sms_powiadomienia !== undefined ? !!req.body.sms_powiadomienia : staryRow?.sms_powiadomienia || false,
+        req.body.pomijaj_hibp !== undefined ? !!req.body.pomijaj_hibp : staryRow?.pomijaj_hibp || false,
+      ]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
     const zmiany = [];

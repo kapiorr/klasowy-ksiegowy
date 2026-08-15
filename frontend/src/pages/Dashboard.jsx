@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, getAppConfig } from '../api.js';
+import { api, getAppConfig, getHibpStatus, dismissHibp } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 function ProgressBar({ value, max }) {
@@ -65,6 +65,11 @@ export default function Dashboard() {
   const [historiaWplat, setHistoriaWplat] = useState([]);
   const [appConfig, setAppConfig] = useState({});
   const [loading, setLoading] = useState(true);
+  const [hibpAlert, setHibpAlert] = useState(false);
+
+  useEffect(() => {
+    getHibpStatus().then(s => setHibpAlert(s.show)).catch(() => {});
+  }, []);
 
   const isPodglad = ['podglad', 'podglad_pelny', 'ksiegowy'].includes(user?.rola) && user?.uczen_id;
   const showTwojeWplaty = ['podglad', 'podglad_pelny', 'ksiegowy'].includes(user?.rola) && user?.uczen_id;
@@ -117,6 +122,26 @@ export default function Dashboard() {
         <h1 className="font-display text-3xl font-700 text-ink dark:text-gray-100">Dashboard</h1>
         <p className="font-body text-sage-600 mt-1">Przegląd aktywnych składek</p>
       </div>
+
+      {/* Kafelek ostrzeżenia o wyciekłym haśle */}
+      {hibpAlert && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-6 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
+            <div>
+              <div className="font-display font-700 text-amber-800 dark:text-amber-300 mb-1">Twoje hasło figuruje w bazie wyciekłych haseł</div>
+              <p className="font-body text-sm text-amber-700 dark:text-amber-400">
+                Zalecamy zmianę hasła jak najszybciej. Możesz to zrobić w{' '}
+                <Link to="/ustawienia" className="underline font-500">Ustawieniach</Link>.
+              </p>
+            </div>
+          </div>
+          <button onClick={async () => {
+            await dismissHibp().catch(() => {});
+            setHibpAlert(false);
+          }} className="text-amber-600 hover:text-amber-800 dark:text-amber-400 flex-shrink-0 text-lg" title="Zamknij (pojawi się ponownie za 5 dni)">✕</button>
+        </div>
+      )}
 
       <div className={`grid grid-cols-1 ${user?.rola !== 'podglad' ? 'sm:grid-cols-2' : ''} gap-4 mb-8`}>
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-5">

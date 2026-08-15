@@ -208,6 +208,8 @@ export const uploadSkladkaBackup = async (file) => {
 
 export const getBackupConfig = () => request('/backup/config');
 export const getAppConfig = () => request('/config');
+export const getHibpStatus = () => request('/auth/hibp-status');
+export const dismissHibp = () => request('/auth/hibp-dismiss', { method: 'POST' });
 export const getPushVapidKey = () => request('/push/vapid-public-key');
 export const getPushStatus = () => request('/push/status');
 export const pushSubscribe = (subscription) => request('/push/subscribe', { method: 'POST', body: JSON.stringify({ subscription }) });

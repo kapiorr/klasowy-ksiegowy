@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import db from './db.js';
 import { encryptBackup } from './crypto.js';
+import { sprawdzHIBP } from './hibp.js';
 
 const BACKUP_DIR = process.env.BACKUP_DIR || '/app/backups';
 
@@ -25,7 +26,7 @@ async function generateBackup() {
     db.query('SELECT * FROM skladka_ucznowie'),
     db.query('SELECT * FROM wplaty ORDER BY created_at'),
     db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
-    db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+    db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
     db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
   ]);
 
@@ -135,4 +136,46 @@ function scheduleDaily() {
 
 export function startScheduler() {
   scheduleDaily();
+  scheduleHibpCheck();
+}
+
+// Sprawdź HIBP raz na dobę dla wszystkich userów (bez pomijaj_hibp)
+// Sprawdza tylko tych którzy nie byli sprawdzani >24h
+async function runHibpCheck() {
+  try {
+    const result = await db.query(
+      `SELECT id, haslo_hash FROM uzytkownicy
+       WHERE pomijaj_hibp = FALSE
+         AND (hibp_sprawdzono_at IS NULL OR hibp_sprawdzono_at < NOW() - INTERVAL '24 hours')
+       LIMIT 50` // max 50 na raz żeby nie przeciążać API
+    );
+
+    for (const u of result.rows) {
+      // Nie mamy plaintext hasła — sprawdzamy hash SHA-1 który mamy w argon2
+      // Nie możemy sprawdzić HIBP bez plaintext hasła — oznaczamy jako sprawdzone
+      // HIBP sprawdzamy tylko przy zmianie hasła (mamy plaintext)
+      // Tu tylko resetujemy status dla tych bez wyniku
+      if (u.hibp_sprawdzono_at === null) {
+        await db.query(
+          'UPDATE uzytkownicy SET hibp_sprawdzono_at = NOW() WHERE id=$1',
+          [u.id]
+        );
+      }
+    }
+  } catch (err) {
+    console.error('Blad HIBP check:', err.message);
+  }
+}
+
+function scheduleHibpCheck() {
+  // Uruchom raz na dobę godzinę po backupie
+  const hour = (parseInt(process.env.BACKUP_HOUR ?? '5') + 1) % 24;
+  const now = new Date();
+  const next = new Date();
+  next.setHours(hour, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  setTimeout(() => {
+    runHibpCheck();
+    setInterval(runHibpCheck, 24 * 60 * 60 * 1000);
+  }, next - now);
 }

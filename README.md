@@ -32,7 +32,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 
 - Logowanie możliwe zarówno loginem jak i adresem email
 - Login i email muszą być unikalne — walidacja przy tworzeniu i edycji użytkownika
-- Pola użytkownika: login, hasło, rola, imię, nazwisko, email (opcjonalny, walidowany), telefon (opcjonalny, walidowany), powiązany uczeń, sms_powiadomienia (bool), pomijaj_hibp (bool — wyłącza sprawdzanie HIBP dla danego użytkownika)
+- Pola użytkownika: login, hasło, rola, imię, nazwisko, email (opcjonalny, walidowany), telefon (opcjonalny, walidowany), powiązany uczeń, sms_powiadomienia, pomijaj_hibp (wyłącza HIBP), hibp_wycieklo (wynik ostatniego sprawdzenia), hibp_dismissed_at (kiedy zamknięto kafelek)
 - Przypisanie ucznia możliwe dla dowolnej roli; wymagane tylko dla roli `podglad`
 - Import użytkowników z CSV (`login;haslo;rola;email;imie;nazwisko;telefon;sms_powiadomienia`) — nagłówek opcjonalny, rola: admin/ksiegowy/podglad_pelny/podglad
 - Eksport użytkowników do CSV z pełnymi danymi (telefon, SMS, powiązany uczeń)
@@ -293,7 +293,7 @@ klasowy-ksiegowy/
 
 - Nigdy nie zmieniaj `PEPPER` ani `MFA_ENCRYPTION_KEY` po pierwszym uruchomieniu — unieważni wszystkie hasła/MFA
 - `JWT_SECRET` można zmienić — spowoduje wylogowanie wszystkich użytkowników
-- Sprawdzanie HIBP działa bez dodatkowej konfiguracji — wymaga połączenia z internetem; przy niedostępności API hasło jest akceptowane (fail-open)
+- Sprawdzanie HIBP działa bez dodatkowej konfiguracji — wymaga połączenia z internetem przy zmianie hasła; przy niedostępności API hasło jest akceptowane (fail-open); wynik jest zapisywany w bazie i nie powoduje ponownych zapytań do HIBP
 - `APP_URL` musi być ustawiony — używany jako dozwolone źródło CORS oraz w linkach w mailach
 - `DB_SSL=true` — włącz tylko przy zewnętrznej bazie danych (np. AWS RDS); lokalny Docker nie wymaga
 - `BACKUP_ENCRYPTION_KEY` — jeśli ustawiony, wszystkie backupy są szyfrowane AES-256-GCM; bez tego klucza zaszyfrowane backupy są nie do odczytania; przechowuj klucz osobno od backupów

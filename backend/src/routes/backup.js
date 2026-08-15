@@ -20,7 +20,7 @@ router.get('/', requireAdmin, async (req, res) => {
       db.query('SELECT * FROM skladka_ucznowie'),
       db.query('SELECT * FROM wplaty ORDER BY created_at'),
       db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
-      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
       db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
     ]);
 
@@ -141,10 +141,10 @@ router.post('/restore', requireAdmin, async (req, res) => {
     for (const r of uzytkownicy) {
       await client.query(
         `INSERT INTO uzytkownicy
-           (id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, uczen_id,
+           (id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, uczen_id,
             mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone,
             force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
          ON CONFLICT (id) DO UPDATE SET
            haslo_hash = EXCLUDED.haslo_hash,
            rola = EXCLUDED.rola,
@@ -152,6 +152,9 @@ router.post('/restore', requireAdmin, async (req, res) => {
            telefon = EXCLUDED.telefon,
            sms_powiadomienia = EXCLUDED.sms_powiadomienia,
            pomijaj_hibp = EXCLUDED.pomijaj_hibp,
+           hibp_wycieklo = EXCLUDED.hibp_wycieklo,
+           hibp_sprawdzono_at = EXCLUDED.hibp_sprawdzono_at,
+           hibp_dismissed_at = EXCLUDED.hibp_dismissed_at,
            imie = EXCLUDED.imie,
            nazwisko = EXCLUDED.nazwisko,
            mfa_secret = EXCLUDED.mfa_secret,
@@ -161,7 +164,7 @@ router.post('/restore', requireAdmin, async (req, res) => {
            force_password_change = EXCLUDED.force_password_change,
            awaiting_password_reset = EXCLUDED.awaiting_password_reset`,
         [r.id, r.login, r.haslo_hash, r.imie || null, r.nazwisko || null,
-         r.rola, r.email || null, r.telefon || null, r.sms_powiadomienia || false, r.pomijaj_hibp || false, r.uczen_id || null,
+         r.rola, r.email || null, r.telefon || null, r.sms_powiadomienia || false, r.pomijaj_hibp || false, r.hibp_wycieklo ?? null, r.hibp_sprawdzono_at || null, r.hibp_dismissed_at || null, r.uczen_id || null,
          r.mfa_secret || null, r.mfa_enabled || false,
          r.mfa_backup_codes || null, r.mfa_wymuszone || false,
          r.force_password_change || false, r.awaiting_password_reset || false,
