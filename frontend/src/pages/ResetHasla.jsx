@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
+import Captcha from '../components/Captcha.jsx';
 
 export default function ResetHasla() {
   const [params] = useSearchParams();
@@ -12,12 +13,13 @@ export default function ResetHasla() {
   const [status, setStatus] = useState('idle'); // idle | sent | done | error
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
 
   const submitEmail = async (e) => {
     e.preventDefault();
     setLoading(true); setErr('');
     try {
-      if (!captchaToken) { setMsg('Rozwiąż zadanie CAPTCHA'); return; }
+      if (!captchaToken) { setErr('Rozwiąż zadanie CAPTCHA'); setLoading(false); return; }
       await api.resetHaslaWyslij(email, captchaToken);
       setStatus('sent');
     } catch (e) { setErr(e.message); }
@@ -61,6 +63,10 @@ export default function ResetHasla() {
                   placeholder="twoj@email.pl" required />
               </div>
               {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
+              <div>
+                <label className="block font-body text-sm font-500 text-ink mb-2">Weryfikacja</label>
+                <Captcha onChange={setCaptchaToken} />
+              </div>
               <button type="submit" disabled={loading}
                 className="w-full bg-ink text-white font-display font-600 py-3 rounded-xl hover:bg-sage-700 disabled:opacity-50">
                 {loading ? 'Wysyłanie...' : 'Wyślij link'}

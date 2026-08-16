@@ -11,7 +11,7 @@ function generateTask() {
   if (op === '+') { a = Math.floor(Math.random() * 10) + 1; b = Math.floor(Math.random() * 10) + 1; answer = a + b; }
   else if (op === '-') { a = Math.floor(Math.random() * 10) + 5; b = Math.floor(Math.random() * 5) + 1; answer = a - b; }
   else { a = Math.floor(Math.random() * 5) + 2; b = Math.floor(Math.random() * 5) + 2; answer = a * b; }
-  const opStr = op === '*' ? '×' : op;
+  const opStr = op === '*' ? 'x' : op;
   return { question: `${a} ${opStr} ${b} = ?`, answer };
 }
 
@@ -38,19 +38,19 @@ export async function captchaImage(req, res) {
   const token = signToken(`${answer}|${ts}`);
 
   // Renderuj SVG → PNG przez sharp
-  const w = 180, h = 56;
-  const noise = Array.from({ length: 6 }, () =>
-    `<line x1="${Math.random()*w}" y1="${Math.random()*h}" x2="${Math.random()*w}" y2="${Math.random()*h}" stroke="#94a3b8" stroke-width="1" opacity="0.5"/>`
+  const w = 200, h = 64;
+  const noise = Array.from({ length: 4 }, () =>
+    `<line x1="${Math.random()*w}" y1="${Math.random()*h}" x2="${Math.random()*w}" y2="${Math.random()*h}" stroke="#cbd5e1" stroke-width="1"/>`
   ).join('');
-  const dots = Array.from({ length: 20 }, () =>
-    `<circle cx="${Math.random()*w}" cy="${Math.random()*h}" r="1.5" fill="#94a3b8" opacity="0.4"/>`
+  const dots = Array.from({ length: 12 }, () =>
+    `<circle cx="${Math.random()*w}" cy="${Math.random()*h}" r="2" fill="#cbd5e1"/>`
   ).join('');
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
-    <rect width="${w}" height="${h}" fill="#f8fafc" rx="8"/>
+    <rect width="${w}" height="${h}" fill="white" rx="8"/>
     ${noise}${dots}
-    <text x="${w/2}" y="${h/2 + 8}" font-family="monospace" font-size="22" font-weight="bold"
-      fill="#1e293b" text-anchor="middle" letter-spacing="3">${question}</text>
+    <text x="${w/2}" y="${h/2 + 10}" font-size="26" font-weight="bold"
+      fill="#1e293b" text-anchor="middle" letter-spacing="4">${question}</text>
   </svg>`;
 
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
