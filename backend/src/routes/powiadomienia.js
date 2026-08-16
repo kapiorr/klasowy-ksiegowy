@@ -8,6 +8,7 @@ const DOMYSLNE = {
   login_fail: true,
   login_blocked: true,
   mfa_fail: true,
+  captcha_fail: true,
   reset_hasla: true,
   masowy_mailing: true,
   restore_backup: true,

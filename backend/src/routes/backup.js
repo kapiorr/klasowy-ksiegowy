@@ -24,7 +24,7 @@ router.get('/', requireAdmin, async (req, res) => {
       db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
       db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
       db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
-    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle FROM admin_powiadomienia'),
+    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle FROM admin_powiadomienia'),
     ]);
 
     const wyplaty = wyplatyRaw.rows;
@@ -135,14 +135,14 @@ router.post('/restore', requireAdmin, async (req, res) => {
     // Przywróć preferencje powiadomień admina
     for (const p of (payload.data.admin_powiadomienia || [])) {
       await client.query(
-        `INSERT INTO admin_powiadomienia (uzytkownik_id, login_fail, login_blocked, mfa_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        `INSERT INTO admin_powiadomienia (uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
          ON CONFLICT (uzytkownik_id) DO UPDATE SET
            login_fail=EXCLUDED.login_fail, login_blocked=EXCLUDED.login_blocked,
-           mfa_fail=EXCLUDED.mfa_fail, reset_hasla=EXCLUDED.reset_hasla,
-           masowy_mailing=EXCLUDED.masowy_mailing, restore_backup=EXCLUDED.restore_backup,
-           hibp_wyciekle=EXCLUDED.hibp_wyciekle`,
-        [p.uzytkownik_id, p.login_fail, p.login_blocked, p.mfa_fail, p.reset_hasla, p.masowy_mailing, p.restore_backup, p.hibp_wyciekle]
+           mfa_fail=EXCLUDED.mfa_fail, captcha_fail=EXCLUDED.captcha_fail,
+           reset_hasla=EXCLUDED.reset_hasla, masowy_mailing=EXCLUDED.masowy_mailing,
+           restore_backup=EXCLUDED.restore_backup, hibp_wyciekle=EXCLUDED.hibp_wyciekle`,
+        [p.uzytkownik_id, p.login_fail, p.login_blocked, p.mfa_fail, p.captcha_fail ?? true, p.reset_hasla, p.masowy_mailing, p.restore_backup, p.hibp_wyciekle]
       );
     }
 

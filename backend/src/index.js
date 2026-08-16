@@ -211,6 +211,7 @@ async function migrate() {
      ON push_subscriptions (uzytkownik_id, (subscription->>'endpoint'))`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sms_powiadomienia BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE admin_powiadomienia ADD COLUMN IF NOT EXISTS captcha_fail BOOLEAN NOT NULL DEFAULT TRUE`,
     `CREATE TABLE IF NOT EXISTS admin_powiadomienia (
        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
        uzytkownik_id UUID NOT NULL REFERENCES uzytkownicy(id) ON DELETE CASCADE UNIQUE,

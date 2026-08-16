@@ -413,6 +413,7 @@ function PowiadomieniaSekcja() {
     { key: 'login_blocked', label: 'Blokada po nieudanych logowaniach' },
     { key: 'login_fail', label: 'Nieudane próby logowania' },
     { key: 'mfa_fail', label: 'Nieudana weryfikacja MFA' },
+    { key: 'captcha_fail', label: 'Błędna odpowiedź CAPTCHA przy resecie hasła' },
     { key: 'reset_hasla', label: 'Wysłanie linku resetu hasła' },
     { key: 'masowy_mailing', label: 'Masowa wysyłka wiadomości (>10 odbiorców)' },
     { key: 'restore_backup', label: 'Przywrócenie backupu' },

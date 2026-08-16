@@ -127,6 +127,7 @@ export async function sendAdminAlert(login, ip, blokady, typ = 'login_blocked') 
     login_fail: 'Nieudane próby logowania',
     login_blocked: 'Blokada po nieudanych logowaniach',
     mfa_fail: 'Nieudana weryfikacja MFA',
+    captcha_fail: 'Błędna odpowiedź CAPTCHA',
     reset_hasla: 'Wysłanie linku resetu hasła',
     masowy_mailing: 'Masowa wysyłka wiadomości',
     restore_backup: 'Przywrócenie backupu',

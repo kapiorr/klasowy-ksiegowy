@@ -51,6 +51,8 @@ const AKCJE_LABELS = {
   import_ucznowie_csv: '⬆ Import uczniów CSV',
   import_uzytkownicy_csv: '⬆ Import użytkowników CSV',
   hibp_wyciekle_haslo: '⚠️ Wyciekłe hasło!',
+  captcha_fail: '✗ Błędna CAPTCHA',
+  reset_hasla_wyslano: '✉ Reset hasła — wysłano',
 };
 
 const AKCJE_COLORS = {
@@ -64,6 +66,8 @@ const AKCJE_COLORS = {
   edit_wplata: 'text-amber-600',
   delete_wplata: 'text-rose-500',
   hibp_wyciekle_haslo: 'text-amber-600',
+  captcha_fail: 'text-rose-500',
+  reset_hasla_wyslano: 'text-blue-500',
 };
 
 function BlokadyPanel({ onOdblokuj }) {

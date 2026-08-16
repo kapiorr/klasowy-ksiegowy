@@ -218,8 +218,21 @@ router.post('/zmien-haslo', requireAuth, async (req, res) => {
 });
 
 // ── Reset hasła — wyślij email ────────────────────────────────────────────────
-router.post('/reset-hasla/wyslij', requireCaptcha, async (req, res) => {
-  const { email } = req.body;
+router.post('/reset-hasla/wyslij', async (req, res) => {
+  const { email, captcha_token, captcha_answer } = req.body;
+  const ip = getIP(req);
+
+  // Weryfikacja CAPTCHA z logowaniem
+  const { verifyCaptcha } = await import('../captcha.js');
+  if (!verifyCaptcha(captcha_token, captcha_answer)) {
+    await log({ ip, akcja: 'captcha_fail', zasob: '/reset-hasla/wyslij', sukces: false,
+      szczegoly: `Błędna CAPTCHA przy próbie resetu hasła${email ? ' dla: ' + email : ''}` }).catch(() => {});
+    sendAdminAlert(email || 'nieznany', ip, [{
+      typ: 'captcha_fail',
+      wartosc: `Błędna CAPTCHA przy próbie resetu hasła${email ? ' dla: ' + email : ''}`,
+    }], 'captcha_fail').catch(() => {});
+    return res.status(400).json({ error: 'Nieprawidłowa odpowiedź CAPTCHA — odśwież i spróbuj ponownie' });
+  }
   if (!email) return res.status(400).json({ error: 'Email jest wymagany' });
 
   try {
@@ -238,6 +251,9 @@ router.post('/reset-hasla/wyslij', requireCaptcha, async (req, res) => {
     await sendResetEmail(email, raw);
 
     // Alert admina o wysłaniu linku resetu
+    await log({ ip, akcja: 'reset_hasla_wyslano', zasob: '/reset-hasla/wyslij', sukces: true,
+      szczegoly: `Wysłano link resetu hasła na adres: ${email}` }).catch(() => {});
+
     await sendAdminAlert(email, ip, [{
       typ: 'reset_hasla',
       wartosc: `Wysłano link resetu hasła na adres: ${email}`,
