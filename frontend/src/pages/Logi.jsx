@@ -192,16 +192,22 @@ export default function Logi() {
               <optgroup label="Hasła i MFA">
                 <option value="zmiana_hasla">Zmiana hasła</option>
                 <option value="wymuszona_zmiana_hasla">Wymuszona zmiana hasła</option>
+                <option value="reset_hasla_wyslano">Reset hasła — wysłano</option>
                 <option value="mfa_wlaczone">MFA włączone</option>
                 <option value="mfa_wylaczone">MFA wyłączone</option>
+                <option value="mfa_fail">Błędny kod MFA</option>
               </optgroup>
-              <optgroup label="Eksporty">
+              <optgroup label="Bezpieczeństwo">
+                <option value="hibp_wyciekle_haslo">Wyciekłe hasło</option>
+                <option value="captcha_fail">Błędna CAPTCHA</option>
+              </optgroup>
+              <optgroup label="Backup">
                 <option value="export_backup">Eksport backup</option>
                 <option value="import_backup">Import backup</option>
                 <option value="export_skladka_backup">Backup składki</option>
                 <option value="import_skladka_backup">Import składki</option>
               </optgroup>
-              <optgroup label="Wpłaty">
+              <optgroup label="Wpłaty i wypłaty">
                 <option value="add_wplata">Wpłata</option>
                 <option value="edit_wplata">Edycja wpłaty</option>
                 <option value="delete_wplata">Usunięcie wpłaty</option>
@@ -210,6 +216,8 @@ export default function Logi() {
                 <option value="delete_wyplata">Usunięcie wypłaty</option>
               </optgroup>
               <optgroup label="Uczniowie">
+                <option value="add_uczen">Nowy uczeń</option>
+                <option value="edit_uczen">Edycja ucznia</option>
                 <option value="add_uczen_skladka">Uczeń dodany do składki</option>
                 <option value="remove_uczen_skladka">Uczeń usunięty ze składki</option>
                 <option value="uczen_aktywowany">Uczeń aktywowany</option>
@@ -221,10 +229,14 @@ export default function Logi() {
                 <option value="edit_skladka">Edycja składki</option>
                 <option value="delete_skladka">Usunięcie składki</option>
               </optgroup>
-              <optgroup label="Wpłaty">
-                <option value="add_wplata">Wpłata</option>
-                <option value="edit_wplata">Edycja wpłaty</option>
-                <option value="delete_wplata">Usunięcie wpłaty</option>
+              <optgroup label="Użytkownicy">
+                <option value="add_uzytkownik">Nowy użytkownik</option>
+                <option value="edit_uzytkownik">Edycja użytkownika</option>
+                <option value="delete_uzytkownik">Usunięcie użytkownika</option>
+              </optgroup>
+              <optgroup label="Mailing">
+                <option value="mailing_skladka">Mailing — składka</option>
+                <option value="mailing_zaleglosci">Mailing — zaległości</option>
               </optgroup>
             </select>
           </div>

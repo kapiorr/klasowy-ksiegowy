@@ -204,6 +204,10 @@ router.post('/zmien-haslo', requireAuth, async (req, res) => {
     const valid = await verifyHaslo(stare_haslo, user.haslo_hash);
     if (!valid) return res.status(401).json({ error: 'Nieprawidłowe stare hasło' });
 
+    // Sprawdź HIBP przed zmianą — zablokuj jeśli wyciekłe (chyba że pomijaj_hibp)
+    const hibpBlokada1 = await walidujHasloHIBP(nowe_haslo, user.pomijaj_hibp);
+    if (hibpBlokada1) return res.status(400).json({ error: hibpBlokada1 });
+
     const haslo_hash = await hashHaslo(nowe_haslo);
     const hibpW1 = await sprawdzHIBP(nowe_haslo);
     await db.query(
@@ -282,6 +286,12 @@ router.post('/reset-hasla/ustaw', async (req, res) => {
     if (!result.rows[0]) return res.status(400).json({ error: 'Token nieważny lub wygasły' });
 
     const tokenRow = result.rows[0];
+
+    // Pobierz pomijaj_hibp dla użytkownika
+    const userHibp = await db.query('SELECT pomijaj_hibp FROM uzytkownicy WHERE id=$1', [tokenRow.uzytkownik_id]);
+    const hibpBlokada2 = await walidujHasloHIBP(nowe_haslo, userHibp.rows[0]?.pomijaj_hibp);
+    if (hibpBlokada2) return res.status(400).json({ error: hibpBlokada2 });
+
     const haslo_hash = await hashHaslo(nowe_haslo);
 
     const hibpW2 = await sprawdzHIBP(nowe_haslo);
@@ -403,17 +413,22 @@ router.post('/wymuszona-zmiana-hasla', requireAuth, async (req, res) => {
 
   try {
     const result = await db.query(
-      'SELECT id, force_password_change FROM uzytkownicy WHERE id=$1',
+      'SELECT id, force_password_change, pomijaj_hibp FROM uzytkownicy WHERE id=$1',
       [user_id]
     );
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'Nie znaleziono uzytkownika' });
     if (!user.force_password_change) return res.status(400).json({ error: 'Zmiana hasla nie jest wymagana' });
 
+    const hibpBlokada3 = await walidujHasloHIBP(nowe_haslo, user.pomijaj_hibp);
+    if (hibpBlokada3) return res.status(400).json({ error: hibpBlokada3 });
+
     const haslo_hash = await hashHaslo(nowe_haslo);
+    const hibpWynikW = await sprawdzHIBP(nowe_haslo);
     await db.query(
-      'UPDATE uzytkownicy SET haslo_hash=$1, force_password_change=FALSE WHERE id=$2',
-      [haslo_hash, user_id]
+      `UPDATE uzytkownicy SET haslo_hash=$1, force_password_change=FALSE,
+        hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL WHERE id=$3`,
+      [haslo_hash, hibpWynikW?.wyciekło ?? null, user_id]
     );
     await log({ uzytkownik_id: user_id, ip: getIP(req), akcja: 'wymuszona_zmiana_hasla', sukces: true });
     res.json({ ok: true });
