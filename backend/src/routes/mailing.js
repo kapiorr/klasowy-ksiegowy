@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireKsiegowy } from '../middleware/auth.js';
+import { mailingLimiter } from '../limiters.js';
 import { sendNowaSkladka, sendZaleglosci, sendAdminAlert } from '../mailer.js';
 import { log, getIP } from '../logger.js';
 import { sendPushToUsers } from '../pushSender.js';
@@ -39,6 +40,7 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
 
     const odbiorcy = result.rows
       .map(r => ({
+        uzytkownik_id: r.uzytkownik_id,
         email: r.email,
         telefon: r.telefon,
         sms_powiadomienia: r.sms_powiadomienia,
@@ -55,7 +57,7 @@ router.get('/skladka/:id/podglad', requireKsiegowy, async (req, res) => {
 });
 
 // POST /mailing/skladka/:id — wyślij powiadomienie o składce
-router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
+router.post('/skladka/:id', requireKsiegowy, mailingLimiter, async (req, res) => {
   const { kanaly = ['email'], email_ids, sms_ids } = req.body;
   try {
     const skladkaRes = await db.query('SELECT * FROM skladki WHERE id=$1', [req.params.id]);
@@ -179,7 +181,7 @@ router.get('/zaleglosci/podglad', requireKsiegowy, async (req, res) => {
 });
 
 // POST /mailing/zaleglosci — wyślij przypomnienia o zaległościach
-router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
+router.post('/zaleglosci', requireKsiegowy, mailingLimiter, async (req, res) => {
   const { uzytkownik_ids, kanaly = ['email'], email_ids, sms_ids } = req.body;
   try {
     // Pobierz szczegółowe zaległości per użytkownik

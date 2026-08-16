@@ -11,6 +11,7 @@ import { walidujHasloHIBP, sprawdzHIBP } from '../hibp.js';
 import { requireCaptcha } from '../captcha.js';
 import { sendResetEmail } from '../mailer.js';
 import { requireAuth } from '../middleware/auth.js';
+import { resetLimiter } from '../limiters.js';
 
 const router = Router();
 
@@ -218,7 +219,7 @@ router.post('/zmien-haslo', requireAuth, async (req, res) => {
 });
 
 // ── Reset hasła — wyślij email ────────────────────────────────────────────────
-router.post('/reset-hasla/wyslij', async (req, res) => {
+router.post('/reset-hasla/wyslij', resetLimiter, async (req, res) => {
   const { email, captcha_token, captcha_answer } = req.body;
   const ip = getIP(req);
 

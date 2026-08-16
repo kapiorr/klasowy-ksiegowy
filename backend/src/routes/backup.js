@@ -132,20 +132,6 @@ router.post('/restore', requireAdmin, async (req, res) => {
         [r.id, r.skladka_id, r.kwota, r.opis, r.data, r.created_at]);
     }
     // Przywróć załączniki do wypłat
-    // Przywróć preferencje powiadomień admina
-    for (const p of (payload.data.admin_powiadomienia || [])) {
-      await client.query(
-        `INSERT INTO admin_powiadomienia (uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-         ON CONFLICT (uzytkownik_id) DO UPDATE SET
-           login_fail=EXCLUDED.login_fail, login_blocked=EXCLUDED.login_blocked,
-           mfa_fail=EXCLUDED.mfa_fail, captcha_fail=EXCLUDED.captcha_fail,
-           reset_hasla=EXCLUDED.reset_hasla, masowy_mailing=EXCLUDED.masowy_mailing,
-           restore_backup=EXCLUDED.restore_backup, hibp_wyciekle=EXCLUDED.hibp_wyciekle`,
-        [p.uzytkownik_id, p.login_fail, p.login_blocked, p.mfa_fail, p.captcha_fail ?? true, p.reset_hasla, p.masowy_mailing, p.restore_backup, p.hibp_wyciekle]
-      );
-    }
-
     for (const z of (payload.data.wyplaty_zalaczniki || [])) {
       const dane = z.dane_b64 ? Buffer.from(z.dane_b64, 'base64') : null;
       if (!dane) continue;
@@ -187,6 +173,20 @@ router.post('/restore', requireAdmin, async (req, res) => {
          r.mfa_backup_codes || null, r.mfa_wymuszone || false,
          r.force_password_change || false, r.awaiting_password_reset || false,
          r.sessions_invalidated_at || null, r.created_at]
+      );
+    }
+
+    // Przywróć preferencje powiadomień admina — PO użytkownikach (FK CASCADE)
+    for (const p of (payload.data.admin_powiadomienia || [])) {
+      await client.query(
+        `INSERT INTO admin_powiadomienia (uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         ON CONFLICT (uzytkownik_id) DO UPDATE SET
+           login_fail=EXCLUDED.login_fail, login_blocked=EXCLUDED.login_blocked,
+           mfa_fail=EXCLUDED.mfa_fail, captcha_fail=EXCLUDED.captcha_fail,
+           reset_hasla=EXCLUDED.reset_hasla, masowy_mailing=EXCLUDED.masowy_mailing,
+           restore_backup=EXCLUDED.restore_backup, hibp_wyciekle=EXCLUDED.hibp_wyciekle`,
+        [p.uzytkownik_id, p.login_fail, p.login_blocked, p.mfa_fail, p.captcha_fail ?? true, p.reset_hasla, p.masowy_mailing, p.restore_backup, p.hibp_wyciekle]
       );
     }
 

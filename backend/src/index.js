@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { mailingLimiter } from './limiters.js';
 import cookieParser from 'cookie-parser';
 import db from './db.js';
 import { hashHaslo } from './crypto.js';
@@ -54,15 +55,6 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// Rate limit dla mailingu i SMS — 10 wysyłek / 15 min
-export const mailingLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Za dużo wysyłek — spróbuj ponownie za chwilę' },
-});
-
 // Middleware blokady IP — sprawdza przed każdym requestem
 app.use(async (req, res, next) => {
   // Pomijamy health check
@@ -102,18 +94,9 @@ app.get('/api/config', requireAuth, (req, res) => {
     payment_phone: process.env.PAYMENT_PHONE || null,
   });
 });
-// Rate limit dla resetu hasła — 5 prób / 15 min per IP
-const resetLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Za dużo prób resetu hasła — spróbuj ponownie za 15 minut' },
-});
 
 app.get('/api/captcha/image', captchaImage);
 app.use('/api/auth', authRouter);
-app.use('/api/auth/reset-hasla/wyslij', resetLimiter);
 app.use('/api/ucznowie', ucznowieRouter);
 app.use('/api/uzytkownicy', uzytkownicyRouter);
 app.use('/api/skladki', skladkiRouter);
@@ -123,7 +106,7 @@ app.use('/api/backup', backupRouter);
 app.use('/api/logi', logiRouter);
 app.use('/api/statystyki', statystykiRouter);
 app.use('/api/raport', raportRouter);
-app.use('/api/mailing', mailingLimiter, mailingRouter);
+app.use('/api/mailing', mailingRouter);
 app.use('/api/push', mailingLimiter, pushRouter);
 app.use('/api/powiadomienia', powiadomieniaRouter);
 
