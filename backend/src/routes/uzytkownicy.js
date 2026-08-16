@@ -10,6 +10,16 @@ import jwt from 'jsonwebtoken';
 
 const router = Router();
 
+function sanitizeCsv(val) {
+  const s = String(val ?? '');
+  // Neutralizuj wiodące znaki formuł Excela
+  if (s && ['=', '+', '-', '@', '\t', '\r'].includes(s[0])) {
+    return "'" + s;
+  }
+  return s;
+}
+
+
 function formatTelefon(tel) {
   if (!tel) return null;
   const digits = tel.replace(/\D/g, '');
@@ -193,7 +203,11 @@ router.patch('/:id', requireAdmin, async (req, res) => {
     if (!result.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
     const zmiany = [];
     if (staryRow) {
-      if (rola && staryRow.rola !== rola) zmiany.push(`rola: ${staryRow.rola} → ${rola}`);
+      if (rola && staryRow.rola !== rola) {
+        zmiany.push(`rola: ${staryRow.rola} → ${rola}`);
+        // Unieważnij sesję przy zmianie roli — stary JWT miał starą rolę
+        await db.query('UPDATE uzytkownicy SET sessions_invalidated_at=NOW() WHERE id=$1', [req.params.id]);
+      }
       if (staryRow.email !== (email || null)) zmiany.push(`email: ${staryRow.email || '—'} → ${email || '—'}`);
       if (staryRow.telefon !== (req.body.telefon || null)) zmiany.push(`telefon: ${staryRow.telefon || '—'} → ${req.body.telefon || '—'}`);
       if (imie && staryRow.imie !== (imie || null)) zmiany.push(`imię: ${staryRow.imie || '—'} → ${imie}`);
@@ -408,15 +422,15 @@ router.get('/export-csv', requireKsiegowy, async (req, res) => {
     const bom = '\uFEFF';
     const header = 'Login;Imie;Nazwisko;Rola;Email;Telefon;SMS_powiadomienia;Uczen_imie;Uczen_nazwisko\n';
     const rows = result.rows.map(r => [
-      r.login,
-      r.imie || '',
-      r.nazwisko || '',
-      r.rola,
-      r.email || '',
-      r.telefon || '',
+      sanitizeCsv(r.login),
+      sanitizeCsv(r.imie),
+      sanitizeCsv(r.nazwisko),
+      sanitizeCsv(r.rola),
+      sanitizeCsv(r.email),
+      sanitizeCsv(r.telefon),
       r.sms_powiadomienia ? 'tak' : 'nie',
-      r.uczen_imie || '',
-      r.uczen_nazwisko || '',
+      sanitizeCsv(r.uczen_imie),
+      sanitizeCsv(r.uczen_nazwisko),
     ].join(';')).join('\n');
     res.setHeader('Content-Type', 'text/csv;charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="uzytkownicy-${new Date().toISOString().split('T')[0]}.csv"`);

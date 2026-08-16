@@ -7,6 +7,8 @@ const BACKUP_DIR = '/app/backups';
 import { validateFile } from '../filecheck.js';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { sendAdminAlert } from '../mailer.js';
+import { getIP } from '../logger.js';
 import { encryptBackup, decryptBackup } from '../crypto.js';
 
 const router = Router();
@@ -14,7 +16,7 @@ const router = Router();
 // GET /backup
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy, wyplatyZalaczniki] = await Promise.all([
+    const [ucznowie, skladki, skladkaUcznowie, wplaty, wyplatyRaw, uzytkownicy, wyplatyZalaczniki, adminPowiadomienia] = await Promise.all([
       db.query('SELECT * FROM ucznowie ORDER BY created_at'),
       db.query('SELECT * FROM skladki ORDER BY created_at'),
       db.query('SELECT * FROM skladka_ucznowie'),
@@ -22,6 +24,7 @@ router.get('/', requireAdmin, async (req, res) => {
       db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
       db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
       db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
+    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle FROM admin_powiadomienia'),
     ]);
 
     const wyplaty = wyplatyRaw.rows;
@@ -37,6 +40,7 @@ router.get('/', requireAdmin, async (req, res) => {
         wyplaty,
         uzytkownicy: uzytkownicy.rows,
         wyplaty_zalaczniki: wyplatyZalaczniki.rows,
+        admin_powiadomienia: adminPowiadomienia.rows,
       },
     };
 
@@ -128,6 +132,20 @@ router.post('/restore', requireAdmin, async (req, res) => {
         [r.id, r.skladka_id, r.kwota, r.opis, r.data, r.created_at]);
     }
     // Przywróć załączniki do wypłat
+    // Przywróć preferencje powiadomień admina
+    for (const p of (payload.data.admin_powiadomienia || [])) {
+      await client.query(
+        `INSERT INTO admin_powiadomienia (uzytkownik_id, login_fail, login_blocked, mfa_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         ON CONFLICT (uzytkownik_id) DO UPDATE SET
+           login_fail=EXCLUDED.login_fail, login_blocked=EXCLUDED.login_blocked,
+           mfa_fail=EXCLUDED.mfa_fail, reset_hasla=EXCLUDED.reset_hasla,
+           masowy_mailing=EXCLUDED.masowy_mailing, restore_backup=EXCLUDED.restore_backup,
+           hibp_wyciekle=EXCLUDED.hibp_wyciekle`,
+        [p.uzytkownik_id, p.login_fail, p.login_blocked, p.mfa_fail, p.reset_hasla, p.masowy_mailing, p.restore_backup, p.hibp_wyciekle]
+      );
+    }
+
     for (const z of (payload.data.wyplaty_zalaczniki || [])) {
       const dane = z.dane_b64 ? Buffer.from(z.dane_b64, 'base64') : null;
       if (!dane) continue;
@@ -271,6 +289,7 @@ router.get('/skladka/:id', requireAdmin, async (req, res) => {
         wplaty: wplaty.rows,
         wyplaty,
         wyplaty_zalaczniki: wyplatyZalaczniki.rows,
+        admin_powiadomienia: adminPowiadomienia.rows,
       },
     };
 

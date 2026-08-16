@@ -50,6 +50,7 @@ const AKCJE_LABELS = {
   import_skladka_backup: '⬆ Import składki',
   import_ucznowie_csv: '⬆ Import uczniów CSV',
   import_uzytkownicy_csv: '⬆ Import użytkowników CSV',
+  hibp_wyciekle_haslo: '⚠️ Wyciekłe hasło!',
 };
 
 const AKCJE_COLORS = {
@@ -62,6 +63,7 @@ const AKCJE_COLORS = {
   add_wplata: 'text-blue-600',
   edit_wplata: 'text-amber-600',
   delete_wplata: 'text-rose-500',
+  hibp_wyciekle_haslo: 'text-amber-600',
 };
 
 function BlokadyPanel({ onOdblokuj }) {

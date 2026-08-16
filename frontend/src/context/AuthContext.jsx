@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { logout as apiLogout } from '../api.js';
 
 const AuthContext = createContext(null);
 
@@ -33,6 +34,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    apiLogout().catch(() => {}); // wyczyść httpOnly cookie na serwerze
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);

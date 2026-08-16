@@ -8,6 +8,7 @@ import qrcode from 'qrcode';
 import db from '../db.js';
 import { hashHaslo, verifyHaslo, generateResetToken, hashResetToken } from '../crypto.js';
 import { walidujHasloHIBP, sprawdzHIBP } from '../hibp.js';
+import { requireCaptcha } from '../captcha.js';
 import { sendResetEmail } from '../mailer.js';
 import { requireAuth } from '../middleware/auth.js';
 
@@ -49,7 +50,7 @@ router.post('/login', async (req, res) => {
       await log({ login_proba: login, ip, akcja: 'login_fail', sukces: false, szczegoly: 'Nieznany login' });
       const nowe = await checkFailedLogins(login, ip);
       if (nowe.length > 0) {
-        await sendAdminAlert(login, ip, nowe);
+        await sendAdminAlert(login, ip, nowe, 'login_blocked');
       }
       return res.status(401).json({ error: 'Nieprawidłowy login lub hasło' });
     }
@@ -64,7 +65,7 @@ router.post('/login', async (req, res) => {
       await log({ uzytkownik_id: user.id, login_proba: login, ip, akcja: 'login_fail', sukces: false, szczegoly: 'Złe hasło' });
       const nowe = await checkFailedLogins(login, ip);
       if (nowe.length > 0) {
-        await sendAdminAlert(login, ip, nowe);
+        await sendAdminAlert(login, ip, nowe, 'login_blocked');
       }
       return res.status(401).json({ error: 'Nieprawidłowy login lub hasło' });
     }
@@ -87,7 +88,7 @@ router.post('/login', async (req, res) => {
         if (usedIdx === -1) {
           await log({ uzytkownik_id: user.id, login_proba: login, ip, akcja: 'login_fail', sukces: false, szczegoly: 'Zły kod MFA' });
           const nowe = await checkFailedLogins(login, ip);
-          if (nowe.length > 0) await sendAdminAlert(login, ip, nowe);
+          if (nowe.length > 0) await sendAdminAlert(login, ip, nowe, 'login_blocked');
           return res.status(401).json({ error: 'Nieprawidłowy kod MFA' });
         }
         const newCodes = codes.filter((_, i) => i !== usedIdx);
@@ -121,12 +122,36 @@ router.post('/login', async (req, res) => {
             'UPDATE uzytkownicy SET hibp_wycieklo=$1, hibp_sprawdzono_at=NOW() WHERE id=$2',
             [wynik.wyciekło, user.id]
           ).catch(() => {});
+          if (wynik.wyciekło) {
+            log({ uzytkownik_id: user.id, ip, akcja: 'hibp_wyciekle_haslo', sukces: false,
+              szczegoly: `Hasło użytkownika "${login}" figuruje w bazach wyciekłych haseł` }).catch(() => {});
+          }
         }
       }).catch(() => {});
     }
 
+    // Loguj jeśli hasło oznaczone jako wyciekłe — niezależnie od flagi pomijaj_hibp
+    if (user.hibp_wycieklo === true) {
+      await log({ uzytkownik_id: user.id, ip, akcja: 'hibp_wyciekle_haslo', sukces: false,
+        szczegoly: `Użytkownik "${login}" loguje się z wyciekłym hasłem${user.pomijaj_hibp ? ' (HIBP pominięte)' : ''}` });
+      sendAdminAlert(login, ip, [{ typ: 'hibp_wyciekle', wartosc: `${login} loguje się z wyciekłym hasłem` }], 'hibp_wyciekle').catch(() => {});
+    }
+
+    // Ustaw httpOnly cookie z tokenem
+    const maxAge = expiry === '30d' ? 30 * 24 * 60 * 60 * 1000
+      : expiry === '24h' ? 24 * 60 * 60 * 1000
+      : 24 * 60 * 60 * 1000;
+
+    res.cookie('token', token, {
+      httpOnly: true,      // niedostępny przez JavaScript
+      secure: true,        // tylko HTTPS
+      sameSite: 'strict',  // CSRF protection
+      maxAge,
+      path: '/',
+    });
+
     res.json({
-      token,
+      token, // zostawiamy dla kompatybilności — frontend może używać cookie lub nagłówka
       user: { id: user.id, login: user.login, rola: user.rola, uczen_id: user.uczen_id, mfaSetupRequired },
     });
   } catch (err) {
@@ -193,7 +218,7 @@ router.post('/zmien-haslo', requireAuth, async (req, res) => {
 });
 
 // ── Reset hasła — wyślij email ────────────────────────────────────────────────
-router.post('/reset-hasla/wyslij', async (req, res) => {
+router.post('/reset-hasla/wyslij', requireCaptcha, async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email jest wymagany' });
 
@@ -211,6 +236,13 @@ router.post('/reset-hasla/wyslij', async (req, res) => {
     );
 
     await sendResetEmail(email, raw);
+
+    // Alert admina o wysłaniu linku resetu
+    await sendAdminAlert(email, ip, [{
+      typ: 'reset_hasla',
+      wartosc: `Wysłano link resetu hasła na adres: ${email}`,
+    }], 'reset_hasla').catch(() => {});
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -410,4 +442,10 @@ router.post('/hibp-dismiss', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Błąd serwera' });
   }
+});
+
+// POST /auth/logout — wyczyść httpOnly cookie
+router.post('/logout', (req, res) => {
+  res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'strict', path: '/' });
+  res.json({ ok: true });
 });

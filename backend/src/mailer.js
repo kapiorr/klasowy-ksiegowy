@@ -111,25 +111,48 @@ export async function sendWelcome(email, login, resetUrl, expiryLabel = '15 minu
 }
 
 // ── Alert bezpieczeństwa dla admina
-export async function sendAdminAlert(login, ip, blokady) {
+// typ: login_fail | login_blocked | mfa_fail | reset_hasla | masowy_mailing | restore_backup | hibp_wyciekle
+export async function sendAdminAlert(login, ip, blokady, typ = 'login_blocked') {
   const adminEmail = process.env.ADMIN_EMAIL;
   if (!adminEmail) return;
-  const info = blokady.map(b => `<li>${escapeHtml(b.typ)}: <strong>${escapeHtml(b.wartosc)}</strong> (${b.count} prob)</li>`).join('');
+
+  // Sprawdź preferencje — dynamiczny import żeby uniknąć circular
+  try {
+    const { adminowieDoPowiadomienia } = await import('./routes/powiadomienia.js');
+    const adminowie = await adminowieDoPowiadomienia(typ);
+    if (!adminowie.length) return; // nikt nie chce tego powiadomienia
+  } catch { /* jeśli błąd — wyślij do ADMIN_EMAIL */ }
+
+  const TYPY_LABELS = {
+    login_fail: 'Nieudane próby logowania',
+    login_blocked: 'Blokada po nieudanych logowaniach',
+    mfa_fail: 'Nieudana weryfikacja MFA',
+    reset_hasla: 'Wysłanie linku resetu hasła',
+    masowy_mailing: 'Masowa wysyłka wiadomości',
+    restore_backup: 'Przywrócenie backupu',
+    hibp_wyciekle: 'Logowanie z wyciekłym hasłem',
+  };
+
+  const tytul = TYPY_LABELS[typ] || 'Alert bezpieczeństwa';
+  const info = blokady.map(b =>
+    `<li>${escapeHtml(b.typ)}: <strong>${escapeHtml(String(b.wartosc))}</strong>${b.count ? ` (${b.count} prób)` : ''}</li>`
+  ).join('');
+
   const body = `
-    <p>Wykryto <strong>5 nieudanych prob logowania</strong>:</p>
+    <p><strong>${escapeHtml(tytul)}</strong></p>
     <ul style="margin:12px 0;padding-left:20px;">
-      <li>Login: <strong>${escapeHtml(login)}</strong></li>
-      <li>IP: <strong>${escapeHtml(ip)}</strong></li>
+      ${login ? `<li>Login / Email: <strong>${escapeHtml(login)}</strong></li>` : ''}
+      ${ip ? `<li>IP: <strong>${escapeHtml(ip)}</strong></li>` : ''}
+      ${info}
     </ul>
-    <p>Zablokowane:</p>
-    <ul style="margin:12px 0;padding-left:20px;">${info}</ul>
-    <p style="color:#999;font-size:13px;">Blokada trwa 1 godzine. Mozesz ja usunac w panelu Logi &rarr; Blokady.</p>
+    <p style="color:#999;font-size:13px;">Możesz zarządzać alertami w Ustawieniach → Powiadomienia.</p>
   `;
+
   await getTransport().sendMail({
     from: process.env.EMAIL_FROM,
     to: adminEmail,
-    subject: `Alert bezpieczenstwa — ${appInfo()}`,
-    html: layout('Alert bezpieczenstwa', body, '#c0392b'),
+    subject: `[Alert] ${tytul} — ${appInfo()}`,
+    html: layout(tytul, body, '#c0392b'),
   });
 }
 

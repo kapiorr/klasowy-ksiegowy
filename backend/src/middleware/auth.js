@@ -2,12 +2,15 @@ import jwt from 'jsonwebtoken';
 import db from '../db.js';
 
 export function requireAuth(req, res, next) {
+  // Token z httpOnly cookie (preferowany) lub nagłówka Authorization (fallback)
+  const cookieToken = req.cookies?.token;
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  const token = cookieToken || (header?.startsWith('Bearer ') ? header.slice(7) : null);
+
+  if (!token) {
     return res.status(401).json({ error: 'Brak tokenu' });
   }
   try {
-    const token = header.slice(7);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Sprawdź czy sesja nie została unieważniona (np. po wysłaniu linku reset)
@@ -15,9 +18,13 @@ export function requireAuth(req, res, next) {
       'SELECT sessions_invalidated_at FROM uzytkownicy WHERE id=$1',
       [decoded.id]
     ).then(result => {
-      const invalidatedAt = result.rows[0]?.sessions_invalidated_at;
+      // Brak wiersza = konto usunięte = 401
+      if (!result.rows[0]) {
+        return res.status(401).json({ error: 'Konto nie istnieje — zaloguj się ponownie' });
+      }
+      const invalidatedAt = result.rows[0].sessions_invalidated_at;
       if (invalidatedAt) {
-        const tokenIat = decoded.iat * 1000; // iat w sekundach → ms
+        const tokenIat = decoded.iat * 1000;
         if (new Date(invalidatedAt).getTime() > tokenIat) {
           return res.status(401).json({ error: 'Sesja wygasła — zaloguj się ponownie' });
         }

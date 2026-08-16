@@ -52,7 +52,7 @@ export const api = {
   login: (data) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   rejestracja: (data) => request('/auth/rejestracja', { method: 'POST', body: JSON.stringify(data) }),
   zmienHaslo: (data) => request('/auth/zmien-haslo', { method: 'POST', body: JSON.stringify(data) }),
-  resetHaslaWyslij: (email) => request('/auth/reset-hasla/wyslij', { method: 'POST', body: JSON.stringify({ email }) }),
+  resetHaslaWyslij: (email, captcha) => request('/auth/reset-hasla/wyslij', { method: 'POST', body: JSON.stringify({ email, ...captcha }) }),
   resetHaslaUstaw: (data) => request('/auth/reset-hasla/ustaw', { method: 'POST', body: JSON.stringify(data) }),
 
   // MFA
@@ -120,13 +120,16 @@ export const mailingSkladka = (id, kanaly, email_ids, sms_ids) => request(`/mail
 export const mailingPodglad = (id) => request(`/mailing/skladka/${id}/podglad`);
 export const getMailingConfig = () => request('/mailing/config');
 export const getMe = () => request('/uzytkownicy/me');
+export const getPowiadomieniaAdmin = () => request('/powiadomienia/admin');
+export const savePowiadomieniaAdmin = (prefs) => request('/powiadomienia/admin', { method: 'PUT', body: JSON.stringify(prefs) });
+export const logout = () => request('/auth/logout', { method: 'POST' });
 export const updateMeSms = (sms_powiadomienia) => request('/uzytkownicy/me/sms', { method: 'PATCH', body: JSON.stringify({ sms_powiadomienia }) });
 export const getMailingZaleglosci = () => request('/mailing/zaleglosci/podglad');
 export const sendMailingZaleglosci = (ids, kanaly, email_ids, sms_ids) => request('/mailing/zaleglosci', { method: 'POST', body: JSON.stringify({ uzytkownik_ids: ids, kanaly, email_ids, sms_ids }) });
 
 export const downloadRaportSkladkiPdf = async (id, nazwa) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`/api/raport/skladka/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(`/api/raport/skladka/${id}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Blad generowania raportu');
   const blob = await res.blob();
@@ -140,7 +143,7 @@ export const downloadRaportSkladkiPdf = async (id, nazwa) => {
 
 export const downloadRaportPdf = async () => {
   const token = localStorage.getItem('token');
-  const res = await fetch('/api/raport/pdf', { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch('/api/raport/pdf', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Błąd generowania raportu');
   const blob = await res.blob();
@@ -154,7 +157,7 @@ export const downloadRaportPdf = async () => {
 
 export const downloadUczniowieCsv = async () => {
   const token = localStorage.getItem('token');
-  const res = await fetch('/api/ucznowie/export-csv', { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch('/api/ucznowie/export-csv', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Błąd eksportu');
   const blob = await res.blob();
@@ -166,7 +169,7 @@ export const downloadUczniowieCsv = async () => {
 
 export const downloadUzytkownicyCsv = async () => {
   const token = localStorage.getItem('token');
-  const res = await fetch('/api/uzytkownicy/export-csv', { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch('/api/uzytkownicy/export-csv', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Błąd eksportu');
   const blob = await res.blob();
@@ -223,7 +226,7 @@ export const getAutoBackups = () => {
 
 export const downloadAutoBackup = async (nazwa) => {
   const token = localStorage.getItem('token');
-  const res = await fetch(`/api/backup/auto/${nazwa}`, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(`/api/backup/auto/${nazwa}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error('Błąd pobierania');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
@@ -234,14 +237,14 @@ export const downloadAutoBackup = async (nazwa) => {
 
 export const runAutoBackup = async () => {
   const token = localStorage.getItem('token');
-  const res = await fetch('/api/backup/auto/run', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch('/api/backup/auto/run', { credentials: 'include', method: 'POST', headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) throw new Error('Błąd backupu');
   return res.json();
 };
 
 export const downloadBackup = async () => {
   const token = localStorage.getItem('token');
-  const res = await fetch('/api/backup', { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch('/api/backup', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Błąd eksportu');
   const blob = await res.blob();

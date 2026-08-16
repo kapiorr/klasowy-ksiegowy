@@ -7,6 +7,16 @@ import { log, getIP } from '../logger.js';
 
 const router = Router();
 
+function sanitizeCsv(val) {
+  const s = String(val ?? '');
+  // Neutralizuj wiodące znaki formuł Excela
+  if (s && ['=', '+', '-', '@', '\t', '\r'].includes(s[0])) {
+    return "'" + s;
+  }
+  return s;
+}
+
+
 // GET /ucznowie?wszyscy=1
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -169,7 +179,7 @@ router.get('/export-csv', requireKsiegowy, async (req, res) => {
     const bom = '\uFEFF';
     const header = 'Imie;Nazwisko;Aktywny\n';
     const rows = result.rows.map(r =>
-      [r.imie, r.nazwisko, r.aktywny ? 'tak' : 'nie'].join(';')
+      [sanitizeCsv(r.imie), sanitizeCsv(r.nazwisko), r.aktywny ? 'tak' : 'nie'].join(';')
     ).join('\n');
     res.setHeader('Content-Type', 'text/csv;charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="ucznowie-${new Date().toISOString().split('T')[0]}.csv"`);

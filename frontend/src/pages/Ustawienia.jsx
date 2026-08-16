@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, getMailingConfig, getMe, updateMeSms, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest } from '../api.js';
+import { api, getMailingConfig, getMe, updateMeSms, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest, getPowiadomieniaAdmin, savePowiadomieniaAdmin } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Sekcja: zmiana hasła ──────────────────────────────────────────────────────
@@ -402,6 +402,70 @@ function PushSekcja() {
   );
 }
 
+
+function PowiadomieniaSekcja() {
+  const { user } = useAuth();
+  const [prefs, setPrefs] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const OPCJE = [
+    { key: 'login_blocked', label: 'Blokada po nieudanych logowaniach' },
+    { key: 'login_fail', label: 'Nieudane próby logowania' },
+    { key: 'mfa_fail', label: 'Nieudana weryfikacja MFA' },
+    { key: 'reset_hasla', label: 'Wysłanie linku resetu hasła' },
+    { key: 'masowy_mailing', label: 'Masowa wysyłka wiadomości (>10 odbiorców)' },
+    { key: 'restore_backup', label: 'Przywrócenie backupu' },
+    { key: 'hibp_wyciekle', label: 'Logowanie z wyciekłym hasłem' },
+  ];
+
+  useEffect(() => {
+    getPowiadomieniaAdmin().then(setPrefs).catch(() => {});
+  }, []);
+
+  if (user?.rola !== 'admin') return null;
+  if (!prefs) return null;
+
+  const toggle = (key) => setPrefs(p => ({ ...p, [key]: !p[key] }));
+
+  const save = async () => {
+    setSaving(true); setMsg('');
+    try {
+      await savePowiadomieniaAdmin(prefs);
+      setMsg('Zapisano preferencje powiadomień');
+    } catch (e) {
+      setMsg('Błąd: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-6">
+      <h2 className="font-display font-700 text-ink dark:text-gray-100 mb-1">🔔 Powiadomienia email (admin)</h2>
+      <p className="font-body text-sm text-sage-600 dark:text-sage-400 mb-4">
+        Wybierz o czym chcesz być informowany mailem na <span className="font-500">{process.env.ADMIN_EMAIL || 'ADMIN_EMAIL'}</span>.
+      </p>
+      {msg && (
+        <div className="font-body text-sm px-4 py-2.5 rounded-xl mb-4 bg-sage-50 text-sage-700 dark:bg-gray-700 dark:text-sage-300">{msg}</div>
+      )}
+      <div className="space-y-3 mb-5">
+        {OPCJE.map(({ key, label }) => (
+          <label key={key} className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={prefs[key] ?? true} onChange={() => toggle(key)}
+              className="rounded border-sage-300 w-4 h-4" />
+            <span className="font-body text-sm text-ink dark:text-gray-100">{label}</span>
+          </label>
+        ))}
+      </div>
+      <button onClick={save} disabled={saving}
+        className="bg-ink dark:bg-gray-900 text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700 disabled:opacity-50 text-sm">
+        {saving ? '⏳ Zapisywanie...' : 'Zapisz'}
+      </button>
+    </div>
+  );
+}
+
 export default function Ustawienia() {
   const { user } = useAuth();
   return (
@@ -414,6 +478,7 @@ export default function Ustawienia() {
       <MfaSekcja />
       <SmsSekcja />
       <PushSekcja />
+      <PowiadomieniaSekcja />
     </div>
   );
 }

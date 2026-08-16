@@ -17,7 +17,8 @@ export default function ResetHasla() {
     e.preventDefault();
     setLoading(true); setErr('');
     try {
-      await api.resetHaslaWyslij(email);
+      if (!captchaToken) { setMsg('Rozwiąż zadanie CAPTCHA'); return; }
+      await api.resetHaslaWyslij(email, captchaToken);
       setStatus('sent');
     } catch (e) { setErr(e.message); }
     finally { setLoading(false); }

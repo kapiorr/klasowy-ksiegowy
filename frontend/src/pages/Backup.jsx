@@ -143,7 +143,7 @@ function AutoBackupy() {
                           if (!await confirm(`Przywrócić backup "${b.nazwa}"? Istniejące dane zostaną nadpisane.`)) return;
                           try {
                             const token = localStorage.getItem('token');
-                            const fileRes = await fetch(`/api/backup/auto/${b.nazwa}`, { headers: { Authorization: `Bearer ${token}` } });
+                            const fileRes = await fetch(`/api/backup/auto/${b.nazwa}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
                             const data = await fileRes.json();
                             const restoreRes = await fetch('/api/backup/restore', {
                               method: 'POST',

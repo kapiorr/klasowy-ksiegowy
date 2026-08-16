@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import db from './db.js';
 import { hashHaslo } from './crypto.js';
 import { activityMiddleware, cleanOldLogs, getIP } from './logger.js';
@@ -19,6 +20,8 @@ import statystykiRouter from './routes/statystyki.js';
 import raportRouter from './routes/raport.js';
 import mailingRouter from './routes/mailing.js';
 import pushRouter from './routes/push.js';
+import { captchaImage } from './captcha.js';
+import powiadomieniaRouter from './routes/powiadomienia.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -35,10 +38,11 @@ app.use(helmet({
 // CORS — tylko z dozwolonej domeny
 app.use(cors({
   origin: process.env.APP_URL || false,
-  credentials: true,
+  credentials: true, // wymagane dla httpOnly cookie
 }));
 
 app.use(express.json({ limit: '20mb' }));
+app.use(cookieParser());
 
 // Globalny rate limit — 200 requestów / 15 min per IP
 const globalLimiter = rateLimit({
@@ -98,7 +102,18 @@ app.get('/api/config', requireAuth, (req, res) => {
     payment_phone: process.env.PAYMENT_PHONE || null,
   });
 });
+// Rate limit dla resetu hasła — 5 prób / 15 min per IP
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Za dużo prób resetu hasła — spróbuj ponownie za 15 minut' },
+});
+
+app.get('/api/captcha/image', captchaImage);
 app.use('/api/auth', authRouter);
+app.use('/api/auth/reset-hasla/wyslij', resetLimiter);
 app.use('/api/ucznowie', ucznowieRouter);
 app.use('/api/uzytkownicy', uzytkownicyRouter);
 app.use('/api/skladki', skladkiRouter);
@@ -110,6 +125,7 @@ app.use('/api/statystyki', statystykiRouter);
 app.use('/api/raport', raportRouter);
 app.use('/api/mailing', mailingLimiter, mailingRouter);
 app.use('/api/push', mailingLimiter, pushRouter);
+app.use('/api/powiadomienia', powiadomieniaRouter);
 
 // Globalny error handler — łapie nieobsłużone wyjątki z async handlerów
 app.use((err, req, res, next) => {
@@ -195,6 +211,18 @@ async function migrate() {
      ON push_subscriptions (uzytkownik_id, (subscription->>'endpoint'))`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sms_powiadomienia BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE`,
+    `CREATE TABLE IF NOT EXISTS admin_powiadomienia (
+       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+       uzytkownik_id UUID NOT NULL REFERENCES uzytkownicy(id) ON DELETE CASCADE UNIQUE,
+       login_fail BOOLEAN NOT NULL DEFAULT TRUE,
+       login_blocked BOOLEAN NOT NULL DEFAULT TRUE,
+       mfa_fail BOOLEAN NOT NULL DEFAULT TRUE,
+       reset_hasla BOOLEAN NOT NULL DEFAULT TRUE,
+       masowy_mailing BOOLEAN NOT NULL DEFAULT TRUE,
+       restore_backup BOOLEAN NOT NULL DEFAULT TRUE,
+       hibp_wyciekle BOOLEAN NOT NULL DEFAULT TRUE,
+       updated_at TIMESTAMPTZ DEFAULT NOW()
+     )`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_wycieklo BOOLEAN`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_sprawdzono_at TIMESTAMPTZ`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_dismissed_at TIMESTAMPTZ`,

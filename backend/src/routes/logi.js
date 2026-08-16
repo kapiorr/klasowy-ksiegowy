@@ -4,6 +4,16 @@ import { requireAdmin } from '../middleware/auth.js';
 
 const router = Router();
 
+function sanitizeCsv(val) {
+  const s = String(val ?? '');
+  // Neutralizuj wiodące znaki formuł Excela
+  if (s && ['=', '+', '-', '@', '\t', '\r'].includes(s[0])) {
+    return "'" + s;
+  }
+  return s;
+}
+
+
 // GET /logi?page=1&limit=100&akcja=&uzytkownik_id=&sukces=&od=&do=
 router.get('/', requireAdmin, async (req, res) => {
   const { page = 1, limit = 100, akcja, uzytkownik_id, sukces, od, do: doDate, ip } = req.query;
@@ -97,12 +107,12 @@ router.get('/export', requireAdmin, async (req, res) => {
     const rows = result.rows.map(r =>
       [
         new Date(r.created_at).toLocaleString('pl-PL'),
-        r.login || '',
-        r.login_proba || '',
+        sanitizeCsv(r.login),
+        sanitizeCsv(r.login_proba),
         r.ip || '',
-        r.akcja,
-        r.zasob || '',
-        r.szczegoly || '',
+        sanitizeCsv(r.akcja),
+        sanitizeCsv(r.zasob),
+        sanitizeCsv(r.szczegoly),
         r.sukces ? 'tak' : 'nie',
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')
     ).join('\n');

@@ -13,7 +13,7 @@ function ZalacznikItem({ wyplataId, z }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    fetch(`/api/wyplaty/${wyplataId}/zalacznik/${z.id}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`/api/wyplaty/${wyplataId}/zalacznik/${z.id}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.blob()).then(b => setUrl(URL.createObjectURL(b))).catch(() => {});
   }, [wyplataId, z.id, z.legacy]);
 

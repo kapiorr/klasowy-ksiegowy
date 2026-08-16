@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireKsiegowy } from '../middleware/auth.js';
-import { sendNowaSkladka, sendZaleglosci } from '../mailer.js';
+import { sendNowaSkladka, sendZaleglosci, sendAdminAlert } from '../mailer.js';
 import { log, getIP } from '../logger.js';
 import { sendPushToUsers } from '../pushSender.js';
 import { sendSMSToUsers, sendSMSForced, smsApiEnabled } from '../smsSender.js';
@@ -118,6 +118,20 @@ router.post('/skladka/:id', requireKsiegowy, async (req, res) => {
     const uzIds = result.rows.filter(r => parseFloat(r.kwota_na_osobe) - parseFloat(r.zaplacono) > 0).map(r => r.uzytkownik_id);
     const pushResult = await sendPushToUsers(uzIds, `Nowa składka: ${s.nazwa}`, `Do zapłacenia: ${parseFloat(s.kwota_na_osobe).toFixed(2)} zł`, '/').catch(() => ({ wyslano: 0 }));
 
+    // Alert admina przy dużej wysyłce (>10 odbiorców)
+    if (wyslano + wyslano_sms > 10) {
+      sendAdminAlert(req.user?.login || 'system', getIP(req), [{
+        typ: 'masowy_mailing',
+        wartosc: `Składka: ${s.nazwa} | Email: ${wyslano}, SMS: ${wyslano_sms}`,
+      }], 'masowy_mailing').catch(() => {});
+    }
+    // Alert admina przy dużej wysyłce (>10 odbiorców)
+    if (wyslano + wyslano_sms > 10) {
+      sendAdminAlert(req.user?.login || 'system', getIP(req), [{
+        typ: 'masowy_mailing',
+        wartosc: `Zaległości | Email: ${wyslano}, SMS: ${wyslano_sms}`,
+      }], 'masowy_mailing').catch(() => {});
+    }
     res.json({ ok: true, wyslano, wyslano_sms, wyslano_push: pushResult.wyslano, bledy });
   } catch (err) {
     console.error(err);
@@ -236,6 +250,13 @@ router.post('/zaleglosci', requireKsiegowy, async (req, res) => {
     const uzIds = Object.keys(perUser);
     const pushResult = await sendPushToUsers(uzIds, 'Przypomnienie o zaległościach', 'Sprawdź swoje zaległości w Klasowy Księgowy', '/').catch(() => ({ wyslano: 0 }));
 
+    // Alert admina przy dużej wysyłce (>10 odbiorców)
+    if (wyslano + wyslano_sms > 10) {
+      sendAdminAlert(req.user?.login || 'system', getIP(req), [{
+        typ: 'masowy_mailing',
+        wartosc: `Zaległości | Email: ${wyslano}, SMS: ${wyslano_sms}`,
+      }], 'masowy_mailing').catch(() => {});
+    }
     res.json({ ok: true, wyslano, wyslano_sms, wyslano_push: pushResult.wyslano, bledy });
   } catch (err) {
     console.error(err);
