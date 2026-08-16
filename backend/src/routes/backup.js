@@ -104,6 +104,7 @@ router.post('/restore', requireAdmin, async (req, res) => {
     const { ucznowie, skladki, skladka_ucznowie, wplaty, wyplaty, uzytkownicy } = payload.data;
 
     await client.query('BEGIN');
+    await client.query('DELETE FROM admin_powiadomienia'); // przed uzytkownicy
     await client.query('DELETE FROM wyplaty');
     await client.query('DELETE FROM wplaty');
     await client.query('DELETE FROM skladka_ucznowie');

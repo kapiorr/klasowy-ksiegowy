@@ -44,6 +44,7 @@ async function generateBackup() {
       wyplaty,
       uzytkownicy: uzytkownicy.rows,
       wyplaty_zalaczniki: wyplatyZalaczniki.rows,
+      admin_powiadomienia: adminPowiadomienia.rows,
     },
   };
 }
