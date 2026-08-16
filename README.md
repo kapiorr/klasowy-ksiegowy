@@ -53,6 +53,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Rola `podglad` nie widzi ogólnego salda klasy
 
 ### Mailing
+- **Alerty email dla admina** — konfigurowalne w Ustawieniach; obsługiwane zdarzenia: blokady IP, nieudane logowania, błędy MFA, reset hasła, masowy mailing, restore backupu, wyciekłe hasła
 - Powiadomienie o nowej składce — wysyłka do użytkowników przypisanych do składki z kwotą do zapłacenia i opisem składki (jeśli istnieje)
 - Przypomnienie o zaległościach — na żądanie admina/księgowego, do wszystkich lub wybranych użytkowników z zaległościami (role: podglad, podglad_pelny, ksiegowy)
 - Wybór kanału wysyłki: email, SMS lub oba jednocześnie
@@ -91,6 +92,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - **Tryb ciemny** — wykrywa preferencje systemu, zapamiętuje wybór
 - **PWA** — można zainstalować jako aplikację na telefonie
 - **SMS** — opcjonalne powiadomienia SMS przez SMSAPI.pl; użytkownik może włączyć/wyłączyć w Ustawieniach; admin może wymusić wysyłkę mimo wyłączenia
+- **CAPTCHA matematyczna** — obrazkowa, generowana lokalnie przez sharp (SVG→PNG), bez zewnętrznych serwisów; używana przy resecie hasła
 - **Push notifications** — powiadomienia push o nowych składkach i zaległościach; użytkownik włącza je w Ustawieniach; wymagają konfiguracji VAPID w `.env`
 - **Responsive** — w pełni obsługiwany na urządzeniach mobilnych
 - Backup całej bazy i restore (JSON z załącznikami base64)
@@ -227,6 +229,7 @@ chmod 600 .env
 ### 3. Uruchom
 
 ```bash
+docker-compose pull  # opcjonalnie: pobierz najnowsze obrazy
 docker-compose up -d
 ```
 
