@@ -20,10 +20,10 @@ function isMobile(req) {
   return /android|iphone|ipad|ipod|mobile|phone/.test(ua);
 }
 
-function jwtExpiry(rola, req) {
-  // Ksiegowy na telefonie: 30 dni; wszystko inne: 1h
-  if (['admin', 'ksiegowy'].includes(rola) && isMobile(req)) return '30d';
-  return '1h';
+function jwtExpiry(req) {
+  // Mobile: 30 dni — nie wylogowuje użytkowników na telefonie
+  // Desktop: 1 godzina
+  return isMobile(req) ? '30d' : '1h';
 }
 
 // ── Logowanie ─────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ router.post('/login', async (req, res) => {
     // MFA wymuszone ale nie skonfigurowane
     const mfaSetupRequired = user.mfa_wymuszone && !user.mfa_enabled;
 
-    const expiry = jwtExpiry(user.rola, req);
+    const expiry = jwtExpiry(req);
     const token = jwt.sign(
       { id: user.id, rola: user.rola, uczen_id: user.uczen_id, mfaSetupRequired },
       process.env.JWT_SECRET,

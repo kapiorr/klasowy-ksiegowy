@@ -113,6 +113,36 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /uzytkownicy/:id/wyloguj — admin unieważnia sesję konkretnego użytkownika
+router.post('/:id/wyloguj', requireAdmin, async (req, res) => {
+  try {
+    await db.query(
+      'UPDATE uzytkownicy SET sessions_invalidated_at=NOW() WHERE id=$1',
+      [req.params.id]
+    );
+    await log({ uzytkownik_id: req.user.id, ip: req.ip, akcja: 'sesja_uniewaznienie',
+      szczegoly: `Unieważniono sesję użytkownika: ${req.params.id}`, sukces: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// POST /uzytkownicy/wyloguj-wszystkich — admin unieważnia wszystkie sesje
+router.post('/wyloguj-wszystkich', requireAdmin, async (req, res) => {
+  try {
+    const result = await db.query(
+      'UPDATE uzytkownicy SET sessions_invalidated_at=NOW() WHERE id != $1',
+      [req.user.id] // nie wylogowuj siebie
+    );
+    await log({ uzytkownik_id: req.user.id, ip: req.ip, akcja: 'sesja_uniewaznienie',
+      szczegoly: `Unieważniono sesje wszystkich użytkowników (${result.rowCount})`, sukces: true });
+    res.json({ ok: true, wylogowano: result.rowCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 // GET /uzytkownicy/me — profil zalogowanego użytkownika
 router.get('/me', requireAuth, async (req, res) => {
   try {

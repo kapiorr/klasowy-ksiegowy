@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { api, downloadUzytkownicyCsv } from '../api.js';
+import { api, wylogujUzytkownika, wylogujWszystkich, downloadUzytkownicyCsv } from '../api.js';
 import { useDialog } from '../components/Dialog.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -243,6 +243,34 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
                 {ucznowie.map(u => <option key={u.id} value={u.id}>{u.nazwisko} {u.imie}</option>)}
               </select>
             </div>
+          {/* Blokada aplikacji */}
+          {lockStatus && (
+            <div className="bg-sage-50 dark:bg-gray-700 border border-sage-100 dark:border-gray-600 rounded-xl p-4">
+              <div className="font-body text-sm font-600 text-ink dark:text-gray-100 mb-2">🔒 Blokada aplikacji (mobile)</div>
+              {!lockStatus.ma_pin && lockStatus.liczba_kluczy === 0 ? (
+                <div className="font-body text-xs text-sage-400">Brak ustawionej blokady</div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {lockStatus.ma_pin && (
+                    <button type="button" onClick={async () => {
+                      await adminDeleteUserPin(user.id);
+                      setLockStatus(s => ({ ...s, ma_pin: false }));
+                    }} className="text-xs border border-amber-300 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
+                      Usuń PIN
+                    </button>
+                  )}
+                  {lockStatus.liczba_kluczy > 0 && (
+                    <button type="button" onClick={async () => {
+                      await adminDeleteUserCredentials(user.id);
+                      setLockStatus(s => ({ ...s, liczba_kluczy: 0 }));
+                    }} className="text-xs border border-amber-300 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
+                      Usuń klucze biometryczne ({lockStatus.liczba_kluczy})
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
@@ -461,6 +489,13 @@ export default function Uzytkownicy() {
             className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50">
             ⬇ Eksport CSV
           </button>
+          <button onClick={async () => {
+            if (!await confirm('Unieważnić sesje WSZYSTKICH użytkowników? Zostaną wylogowani przy następnym requeście.')) return;
+            const r = await wylogujWszystkich();
+            await alert(`Wylogowano ${r.wylogowano} użytkowników`, 'success');
+          }} className="border border-rose-200 text-rose-500 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-rose-50">
+            ⎋ Wyloguj wszystkich
+          </button>
           <button onClick={() => setDodajModal(true)}
             className="bg-ink text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700">
             + Nowy użytkownik
@@ -527,8 +562,23 @@ export default function Uzytkownicy() {
                     }`}>
                     {u.force_password_change ? 'Cofnij wymuszenie' : 'Wymuś hasło'}
                   </button>
+                  {u.id !== user?.id && (
+                    <button onClick={async () => {
+                      if (!await confirm(`Unieważnić sesję użytkownika ${u.login}? Zostanie wylogowany przy następnym requeście.`)) return;
+                      await wylogujUzytkownika(u.id);
+                      showMsg('Sesja unieważniona');
+                    }} className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
+                      ⎋ Wyloguj
+                    </button>
+                  )}
                   <button onClick={() => handleDelete(u.id)}
-                    className="text-xs font-body text-rose-400 hover:text-rose-500 underline">
+                    disabled={u.id === user?.id}
+                    title={u.id === user?.id ? 'Nie możesz usunąć własnego konta' : ''}
+                    className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
+                      u.id === user?.id
+                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
+                        : 'border-rose-200 text-rose-500 hover:bg-rose-50'
+                    }`}>
                     Usuń
                   </button>
                 </div>

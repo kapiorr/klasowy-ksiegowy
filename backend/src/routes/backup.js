@@ -191,6 +191,7 @@ router.post('/restore', requireAdmin, async (req, res) => {
       );
     }
 
+
     await client.query('COMMIT');
     res.json({ ok: true, message: 'Backup wgrany pomyślnie' });
   } catch (err) {

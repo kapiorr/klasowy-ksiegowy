@@ -28,7 +28,13 @@ CREATE TABLE uzytkownicy (
   mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
   mfa_backup_codes TEXT[],       -- tablica zahashowanych Argon2 kodów zapasowych
   mfa_wymuszone BOOLEAN NOT NULL DEFAULT FALSE,
-  force_password_change BOOLEAN NOT NULL DEFAULT FALSE,  -- ustawiane przez księgowego
+  force_password_change BOOLEAN NOT NULL DEFAULT FALSE,
+  awaiting_password_reset BOOLEAN NOT NULL DEFAULT FALSE,
+  sms_powiadomienia BOOLEAN NOT NULL DEFAULT FALSE,
+  pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE,
+  hibp_wycieklo BOOLEAN,
+  hibp_sprawdzono_at TIMESTAMPTZ,
+  hibp_dismissed_at TIMESTAMPTZ,  -- ustawiane przez księgowego
   sessions_invalidated_at TIMESTAMPTZ,                    -- tokeny JWT wystawione przed tą datą są nieważne
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -50,7 +56,8 @@ CREATE TABLE skladki (
   kwota_na_osobe NUMERIC(10,2) NOT NULL,
   termin DATE,
   opis TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'aktywna' CHECK (status IN ('aktywna', 'zakonczona', 'wstrzymana')),
+  status VARCHAR(20) NOT NULL DEFAULT 'aktywna' CHECK (status IN ('aktywna', 'zakonczona', 'anulowana')),
+  kolejnosc INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -137,3 +144,25 @@ CREATE TABLE IF NOT EXISTS wyplaty_zalaczniki (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS wyplaty_zalaczniki_wyplata_idx ON wyplaty_zalaczniki (wyplata_id);
+
+CREATE TABLE IF NOT EXISTS admin_powiadomienia (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  uzytkownik_id UUID NOT NULL REFERENCES uzytkownicy(id) ON DELETE CASCADE UNIQUE,
+  login_fail BOOLEAN NOT NULL DEFAULT TRUE,
+  login_blocked BOOLEAN NOT NULL DEFAULT TRUE,
+  mfa_fail BOOLEAN NOT NULL DEFAULT TRUE,
+  captcha_fail BOOLEAN NOT NULL DEFAULT TRUE,
+  reset_hasla BOOLEAN NOT NULL DEFAULT TRUE,
+  masowy_mailing BOOLEAN NOT NULL DEFAULT TRUE,
+  restore_backup BOOLEAN NOT NULL DEFAULT TRUE,
+  hibp_wyciekle BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  uzytkownik_id UUID NOT NULL REFERENCES uzytkownicy(id) ON DELETE CASCADE,
+  subscription JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions ((subscription->>'endpoint'));
