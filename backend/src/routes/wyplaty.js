@@ -30,7 +30,7 @@ router.get('/', requireAuth, async (req, res) => {
     const result = await db.query(
       `SELECT w.id, w.skladka_id, w.kwota, w.opis, w.data, w.created_at,
               COALESCE(
-                (SELECT json_agg(json_build_object('id', z.id, 'nazwa', z.nazwa, 'typ', z.typ))
+                (SELECT json_agg(json_build_object('id', z.id, 'nazwa', z.nazwa, 'typ', z.typ, 'rozmiar', octet_length(z.dane)))
                  FROM wyplaty_zalaczniki z WHERE z.wyplata_id = w.id),
                 '[]'::json
               ) AS zalaczniki
@@ -230,7 +230,7 @@ router.put('/:id', requireKsiegowy, async (req, res) => {
       szczegoly: `${opis.trim()} | ${zmiany.length ? zmiany.join(', ') : 'bez zmian'}` });
 
     // Pobierz aktualne załączniki
-    const zals = await db.query('SELECT id, nazwa, typ FROM wyplaty_zalaczniki WHERE wyplata_id=$1', [req.params.id]);
+    const zals = await db.query('SELECT id, nazwa, typ, octet_length(dane) AS rozmiar FROM wyplaty_zalaczniki WHERE wyplata_id=$1', [req.params.id]);
     res.json({ ...result.rows[0], zalaczniki: zals.rows });
   } catch (err) {
     console.error(err);

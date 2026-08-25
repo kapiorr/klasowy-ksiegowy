@@ -11,6 +11,13 @@ function ZalacznikItem({ wyplataId, z }) {
   const [show, setShow] = useState(false);
   const isImage = z.typ?.startsWith('image/');
 
+  const formatRozmiar = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return ` (${bytes} B)`;
+    if (bytes < 1024 * 1024) return ` (${(bytes / 1024).toFixed(1)} KB)`;
+    return ` (${(bytes / 1024 / 1024).toFixed(1)} MB)`;
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     fetch(`/api/wyplaty/${wyplataId}/zalacznik/${z.id}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } })
@@ -24,15 +31,15 @@ function ZalacznikItem({ wyplataId, z }) {
       {url
         ? <a href={url} target="_blank" rel="noopener noreferrer"
             className="font-body text-xs text-sage-600 underline hover:text-sage-700 block">
-            📎 {z.nazwa}
+            📎 {z.nazwa}<span className="text-sage-400 no-underline">{formatRozmiar(z.rozmiar)}</span>
           </a>
-        : <span className="font-body text-xs text-sage-400">📎 {z.nazwa}</span>
+        : <span className="font-body text-xs text-sage-400">📎 {z.nazwa}{formatRozmiar(z.rozmiar)}</span>
       }
       {show && isImage && url && (
         <div className="absolute bottom-full left-0 mb-2 z-50 pointer-events-none">
           <div className="bg-white border border-sage-200 rounded-xl shadow-xl p-1.5" style={{ width: '200px' }}>
             <img src={url} alt={z.nazwa} className="w-full rounded-lg object-contain max-h-48" />
-            <div className="text-xs text-sage-400 font-body mt-1 px-1 truncate">{z.nazwa}</div>
+            <div className="text-xs text-sage-400 font-body mt-1 px-1 truncate">{z.nazwa}{formatRozmiar(z.rozmiar)}</div>
           </div>
         </div>
       )}
