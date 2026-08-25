@@ -528,7 +528,7 @@ export default function Uzytkownicy() {
       )}
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 divide-y divide-sage-50 dark:divide-gray-700">
-        {uzytkownicy.map(u => (
+        {uzytkownicy.filter(u => isAdmin || u.rola !== 'admin').map(u => (
           <div key={u.id} className="px-5 py-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0">
