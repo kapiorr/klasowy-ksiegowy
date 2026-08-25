@@ -34,7 +34,7 @@ function DodajModal({ ucznowie, onClose, onSave }) {
   const submit = async (e) => {
     e.preventDefault(); setSaving(true); setErr('');
     if (wyslijMail && !form.email) { setErr('Podaj email aby wysłać zaproszenie'); setSaving(false); return; }
-    if (!wyslijMail && form.haslo.length < 8) { setErr('Hasło min. 8 znaków'); setSaving(false); return; }
+    if (!wyslijMail && form.haslo.length < 12) { setErr('Hasło min. 12 znaków'); setSaving(false); return; }
     if (form.rola === 'podglad' && !form.uczen_id) { setErr('Rola "Podgląd" wymaga przypisania ucznia'); setSaving(false); return; }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setErr('Nieprawidłowy format adresu email'); setSaving(false); return; }
 
@@ -69,14 +69,14 @@ function DodajModal({ ucznowie, onClose, onSave }) {
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">
-              {wyslijMail ? 'Hasło (opcjonalne — użytkownik ustawi przez link)' : 'Hasło * (min. 8 znaków)'}
+              {wyslijMail ? 'Hasło (opcjonalne — użytkownik ustawi przez link)' : 'Hasło * — min. 12 znaków, wielka/mała litera, cyfra, znak specjalny'}
             </label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <input type={showHaslo ? 'text' : 'password'} value={form.haslo}
                   onChange={e => setForm(f => ({ ...f, haslo: e.target.value }))}
                   className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 pr-10 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600 disabled:opacity-40"
-                  minLength={wyslijMail ? 0 : 8} disabled={wyslijMail}
+                  minLength={wyslijMail ? 0 : 12} disabled={wyslijMail}
                   placeholder={wyslijMail ? 'zostanie ustawione przez użytkownika' : ''} />
                 {!wyslijMail && (
                   <button type="button" onClick={() => setShowHaslo(s => !s)}
