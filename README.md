@@ -64,11 +64,13 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 
 ### Bezpieczeństwo
 - Hasła hashowane **Argon2id** z pieprzem (PEPPER)
-- Tokeny **JWT** — 1h na desktopie, 30 dni na urządzeniach mobilnych (dla admin/księgowy)
+- **Polityka haseł** — min. 12 znaków, wielka i mała litera, cyfra, znak specjalny — egzekwowana przy każdej zmianie hasła i tworzeniu konta
+- Baner na dashboardzie gdy hasło nie spełnia wymagań (zamykalny, wraca po 5 dniach); analogicznie do banera HIBP
+- Tokeny **JWT** — 1h na desktopie, 30 dni na urządzeniach mobilnych
 - **MFA TOTP** (Google Authenticator, Authy itp.) z kodami zapasowymi
 - Blokada konta i IP po 5 nieudanych próbach logowania (1h), mail do admina
 - Weryfikacja plików po **magic bytes** (JPEG, PNG, GIF, WebP, PDF)
-- Reset hasła przez email (link ważny 1h) — po zmianie hasła aktywne sesje są unieważniane
+- Reset hasła przez email (link ważny 1h) — po zmianie hasła aktywne sesje są unieważniane; mail zawiera wymagania dotyczące hasła
 - Parametryzowane zapytania SQL — ochrona przed SQL injection
 - Porty bazy danych i backendu niewystawione na zewnątrz
 - Unikalność loginu i emaila na poziomie bazy i aplikacji
@@ -76,6 +78,8 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Logi aktywności
 - Szczegółowe logi wszystkich akcji (kto, co, kiedy, z jakiego IP)
 - Logowanie zmian wartości (np. `kwota: 50.00 → 75.00 zł`)
+- `⚠️ Wyciekłe hasło!` — log przy logowaniu z hasłem z bazy HIBP
+- `⚠️ Słabe hasło` — log przy logowaniu z hasłem nie spełniającym polityki
 - Blokady z możliwością odblokowania przez admina
 - Eksport logów do CSV
 - Automatyczne czyszczenie logów starszych niż 30 dni
@@ -83,6 +87,8 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 ### Statystyki bazy danych (admin)
 - Rozmiar bazy i indeksów
 - Cache hit ratio
+- **Statystyki HIBP** — liczba sprawdzeń, wyciekłe i bezpieczne hasła, konta z wyciekłym hasłem
+- **Słabe hasła** — liczba kont z hasłem nie spełniającym polityki
 - Połączenia (active/idle)
 - Rozmiar tabel z liczbą wierszy
 - Top 20 zapytań SQL wg wywołań (pg_stat_statements)
