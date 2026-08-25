@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { hashHaslo } from '../crypto.js';
 import { walidujHasloHIBP } from '../hibp.js';
+import { walidujSilnoscHasla, PASSWORD_REQUIREMENTS_TEXT } from '../passwordPolicy.js';
 import { requireAuth, requireKsiegowy, requireAdmin } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
 import { sendWelcome } from '../mailer.js';
@@ -76,7 +77,11 @@ router.post('/', async (req, res) => {
     }
 
     const haslo_hash = await hashHaslo(haslo);
-    const pomijajHIBP = !!req.body.pomijaj_hibp;
+    const silnoscBledow = walidujSilnoscHasla(haslo);
+  if (silnoscBledow.length > 0) {
+    return res.status(400).json({ error: `Hasło nie spełnia wymagań: ${silnoscBledow.join(', ')}. Wymagania: ${PASSWORD_REQUIREMENTS_TEXT}` });
+  }
+  const pomijajHIBP = !!req.body.pomijaj_hibp;
     const hibpErr = await walidujHasloHIBP(haslo, pomijajHIBP);
     if (hibpErr) return res.status(400).json({ error: hibpErr });
 

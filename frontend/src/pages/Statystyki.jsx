@@ -168,6 +168,10 @@ export default function Statystyki() {
               <div className="font-body text-xs text-sage-500 dark:text-gray-400 mb-1">Ostatnie 30 dni</div>
               <div className="font-mono text-2xl font-700 text-ink dark:text-gray-100">{parseInt(data.hibp.ostatnie_30dni).toLocaleString('pl-PL')}</div>
             </div>
+            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4">
+              <div className="font-body text-xs text-orange-600 mb-1">Słabe hasła (nie spełniają wymagań)</div>
+              <div className="font-mono text-2xl font-700 text-orange-600">{parseInt(data.hibp.kont_slabe_haslo || 0).toLocaleString('pl-PL')}</div>
+            </div>
           </div>
         </div>
       )}

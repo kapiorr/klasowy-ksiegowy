@@ -34,7 +34,9 @@ CREATE TABLE uzytkownicy (
   pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE,
   hibp_wycieklo BOOLEAN,
   hibp_sprawdzono_at TIMESTAMPTZ,
-  hibp_dismissed_at TIMESTAMPTZ,  -- ustawiane przez księgowego
+  hibp_dismissed_at TIMESTAMPTZ,
+  haslo_slabe BOOLEAN,
+  haslo_slabe_dismissed_at TIMESTAMPTZ,  -- ustawiane przez księgowego
   sessions_invalidated_at TIMESTAMPTZ,                    -- tokeny JWT wystawione przed tą datą są nieważne
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

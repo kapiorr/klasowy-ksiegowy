@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { PASSWORD_REQUIREMENTS_TEXT } from './passwordPolicy.js';
 
 function escapeHtml(text) {
   return String(text ?? '')

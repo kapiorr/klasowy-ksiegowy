@@ -22,6 +22,7 @@ import raportRouter from './routes/raport.js';
 import mailingRouter from './routes/mailing.js';
 import pushRouter from './routes/push.js';
 import { captchaImage } from './captcha.js';
+import { PASSWORD_REQUIREMENTS_TEXT } from './passwordPolicy.js';
 import powiadomieniaRouter from './routes/powiadomienia.js';
 
 const app = express();
@@ -96,6 +97,12 @@ app.get('/api/config', requireAuth, (req, res) => {
 });
 
 app.get('/api/captcha/image', captchaImage);
+app.get('/api/config', (req, res) => {
+  res.json({
+    sms_enabled: !!process.env.SMSAPI_TOKEN,
+    password_requirements: PASSWORD_REQUIREMENTS_TEXT,
+  });
+});
 app.use('/api/auth', authRouter);
 app.use('/api/ucznowie', ucznowieRouter);
 app.use('/api/uzytkownicy', uzytkownicyRouter);
@@ -214,6 +221,8 @@ async function migrate() {
        updated_at TIMESTAMPTZ DEFAULT NOW()
      )`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_wycieklo BOOLEAN`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS haslo_slabe BOOLEAN`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS haslo_slabe_dismissed_at TIMESTAMPTZ`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_sprawdzono_at TIMESTAMPTZ`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_dismissed_at TIMESTAMPTZ`,
     `ALTER TABLE wyplaty DROP COLUMN IF EXISTS zalacznik_nazwa`,

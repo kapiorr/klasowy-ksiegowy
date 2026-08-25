@@ -8,6 +8,7 @@ import qrcode from 'qrcode';
 import db from '../db.js';
 import { hashHaslo, verifyHaslo, generateResetToken, hashResetToken } from '../crypto.js';
 import { walidujHasloHIBP, sprawdzHIBP } from '../hibp.js';
+import { walidujSilnoscHasla, PASSWORD_REQUIREMENTS_TEXT } from '../passwordPolicy.js';
 import { requireCaptcha } from '../captcha.js';
 import { sendResetEmail } from '../mailer.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -115,6 +116,16 @@ router.post('/login', async (req, res) => {
     // Log udanego logowania
     await log({ uzytkownik_id: user.id, login_proba: login, ip, akcja: 'login_ok', sukces: true });
 
+    // Sprawdź siłę hasła w tle i zapisz wynik
+    const slabe = walidujSilnoscHasla(haslo).length > 0;
+    if (slabe !== (user.haslo_slabe === true)) {
+      db.query('UPDATE uzytkownicy SET haslo_slabe=$1 WHERE id=$2', [slabe, user.id]).catch(() => {});
+      if (slabe) {
+        log({ uzytkownik_id: user.id, ip, akcja: 'slabe_haslo', sukces: false,
+          szczegoly: `Użytkownik "${login}" loguje się ze słabym hasłem (nie spełnia wymagań)` }).catch(() => {});
+      }
+    }
+
     // Pierwsze logowanie po założeniu konta — sprawdź HIBP w tle (nie blokuje odpowiedzi)
     if (!user.pomijaj_hibp && user.hibp_sprawdzono_at === null) {
       sprawdzHIBP(haslo).then(wynik => {
@@ -211,7 +222,7 @@ router.post('/zmien-haslo', requireAuth, async (req, res) => {
     const haslo_hash = await hashHaslo(nowe_haslo);
     const hibpW1 = await sprawdzHIBP(nowe_haslo);
     await db.query(
-      `UPDATE uzytkownicy SET haslo_hash=$1, hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL WHERE id=$3`,
+      `UPDATE uzytkownicy SET haslo_hash=$1, hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL, haslo_slabe=FALSE WHERE id=$3`,
       [haslo_hash, hibpW1?.wyciekło ?? null, user.id]
     );
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'zmiana_hasla', sukces: true });
@@ -289,6 +300,13 @@ router.post('/reset-hasla/ustaw', async (req, res) => {
 
     // Pobierz pomijaj_hibp dla użytkownika
     const userHibp = await db.query('SELECT pomijaj_hibp FROM uzytkownicy WHERE id=$1', [tokenRow.uzytkownik_id]);
+
+  // Sprawdź siłę hasła
+  const silnoscBledow = walidujSilnoscHasla(nowe_haslo);
+  if (silnoscBledow.length > 0) {
+    return res.status(400).json({ error: `Hasło nie spełnia wymagań: ${silnoscBledow.join(', ')}. Wymagania: ${PASSWORD_REQUIREMENTS_TEXT}` });
+  }
+
     const hibpBlokada2 = await walidujHasloHIBP(nowe_haslo, userHibp.rows[0]?.pomijaj_hibp);
     if (hibpBlokada2) return res.status(400).json({ error: hibpBlokada2 });
 
@@ -296,7 +314,7 @@ router.post('/reset-hasla/ustaw', async (req, res) => {
 
     const hibpW2 = await sprawdzHIBP(nowe_haslo);
     await db.query(
-      `UPDATE uzytkownicy SET haslo_hash=$1, awaiting_password_reset=FALSE, sessions_invalidated_at=NOW(), hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL WHERE id=$3`,
+      `UPDATE uzytkownicy SET haslo_hash=$1, awaiting_password_reset=FALSE, sessions_invalidated_at=NOW(), hibp_wycieklo=$2, hibp_sprawdzono_at=NOW(), hibp_dismissed_at=NULL, haslo_slabe=FALSE WHERE id=$3`,
       [haslo_hash, hibpW2?.wyciekło ?? null, tokenRow.uzytkownik_id]
     );
     await db.query('UPDATE tokeny_reset SET wykorzystany=TRUE WHERE id=$1', [tokenRow.id]);
@@ -420,6 +438,13 @@ router.post('/wymuszona-zmiana-hasla', requireAuth, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'Nie znaleziono uzytkownika' });
     if (!user.force_password_change) return res.status(400).json({ error: 'Zmiana hasla nie jest wymagana' });
 
+
+  // Sprawdź siłę hasła
+  const silnoscBledow = walidujSilnoscHasla(nowe_haslo);
+  if (silnoscBledow.length > 0) {
+    return res.status(400).json({ error: `Hasło nie spełnia wymagań: ${silnoscBledow.join(', ')}. Wymagania: ${PASSWORD_REQUIREMENTS_TEXT}` });
+  }
+
     const hibpBlokada3 = await walidujHasloHIBP(nowe_haslo, user.pomijaj_hibp);
     if (hibpBlokada3) return res.status(400).json({ error: hibpBlokada3 });
 
@@ -480,4 +505,32 @@ router.post('/hibp-dismiss', requireAuth, async (req, res) => {
 router.post('/logout', (req, res) => {
   res.clearCookie('token', { httpOnly: true, secure: true, sameSite: 'strict', path: '/' });
   res.json({ ok: true });
+});
+
+// GET /auth/haslo-slabe-status — czy hasło nie spełnia wymagań
+router.get('/haslo-slabe-status', requireAuth, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT haslo_slabe, haslo_slabe_dismissed_at FROM uzytkownicy WHERE id=$1',
+      [req.user.id]
+    );
+    const u = result.rows[0];
+    if (!u) return res.json({ show: false });
+    const dismissed = u.haslo_slabe_dismissed_at ? new Date(u.haslo_slabe_dismissed_at) : null;
+    const piecDniTemu = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const show = u.haslo_slabe === true && (!dismissed || dismissed < piecDniTemu);
+    res.json({ show });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// POST /auth/haslo-slabe-dismiss — zamknij baner
+router.post('/haslo-slabe-dismiss', requireAuth, async (req, res) => {
+  try {
+    await db.query('UPDATE uzytkownicy SET haslo_slabe_dismissed_at=NOW() WHERE id=$1', [req.user.id]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
 });

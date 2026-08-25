@@ -213,6 +213,8 @@ export const uploadSkladkaBackup = async (file) => {
 
 export const getBackupConfig = () => request('/backup/config');
 export const getAppConfig = () => request('/config');
+export const getHasloSlabeStatus = () => request('/auth/haslo-slabe-status');
+export const dismissHasloSlabe = () => request('/auth/haslo-slabe-dismiss', { method: 'POST' });
 export const getHibpStatus = () => request('/auth/hibp-status');
 export const dismissHibp = () => request('/auth/hibp-dismiss', { method: 'POST' });
 export const getPushVapidKey = () => request('/push/vapid-public-key');

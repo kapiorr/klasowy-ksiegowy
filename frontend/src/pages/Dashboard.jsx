@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, getAppConfig, getHibpStatus, dismissHibp } from '../api.js';
+import { api, getAppConfig, getHibpStatus, dismissHibp, getHasloSlabeStatus, dismissHasloSlabe } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 function ProgressBar({ value, max }) {
@@ -66,9 +66,11 @@ export default function Dashboard() {
   const [appConfig, setAppConfig] = useState({});
   const [loading, setLoading] = useState(true);
   const [hibpAlert, setHibpAlert] = useState(false);
+  const [hasloSlabeAlert, setHasloSlabeAlert] = useState(false);
 
   useEffect(() => {
     getHibpStatus().then(s => setHibpAlert(s.show)).catch(() => {});
+    getHasloSlabeStatus().then(s => setHasloSlabeAlert(s.show)).catch(() => {});
   }, []);
 
   const isPodglad = ['podglad', 'podglad_pelny', 'ksiegowy'].includes(user?.rola) && user?.uczen_id;
@@ -122,6 +124,26 @@ export default function Dashboard() {
         <h1 className="font-display text-3xl font-700 text-ink dark:text-gray-100">Dashboard</h1>
         <p className="font-body text-sage-600 mt-1">Przegląd aktywnych składek</p>
       </div>
+
+      {/* Kafelek ostrzeżenia o słabym haśle */}
+      {hasloSlabeAlert && (
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 mb-6 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">⚠️</span>
+            <div>
+              <div className="font-display font-700 text-orange-800 dark:text-orange-300 mb-1">Twoje hasło nie spełnia wymagań bezpieczeństwa</div>
+              <p className="font-body text-sm text-orange-700 dark:text-orange-400">
+                Wymagania: min. 12 znaków, wielka i mała litera, cyfra, znak specjalny. Zmień hasło w{' '}
+                <Link to="/ustawienia" className="underline font-500">Ustawieniach</Link>.
+              </p>
+            </div>
+          </div>
+          <button onClick={async () => {
+            await dismissHasloSlabe().catch(() => {});
+            setHasloSlabeAlert(false);
+          }} className="text-orange-600 hover:text-orange-800 dark:text-orange-400 flex-shrink-0 text-lg" title="Zamknij (pojawi się ponownie za 5 dni)">✕</button>
+        </div>
+      )}
 
       {/* Kafelek ostrzeżenia o wyciekłym haśle */}
       {hibpAlert && (
