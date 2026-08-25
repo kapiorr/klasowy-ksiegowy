@@ -53,6 +53,7 @@ const AKCJE_LABELS = {
   hibp_wyciekle_haslo: '⚠️ Wyciekłe hasło!',
   captcha_fail: '✗ Błędna CAPTCHA',
   slabe_haslo: '⚠️ Słabe hasło',
+  sesja_uniewaznienie: '⎋ Unieważnienie sesji',
   reset_hasla_wyslano: '✉ Reset hasła — wysłano',
 };
 
@@ -69,6 +70,7 @@ const AKCJE_COLORS = {
   hibp_wyciekle_haslo: 'text-amber-600',
   captcha_fail: 'text-rose-500',
   slabe_haslo: 'text-orange-500',
+  sesja_uniewaznienie: 'text-amber-600',
   reset_hasla_wyslano: 'text-blue-500',
 };
 
@@ -202,6 +204,7 @@ export default function Logi() {
               <optgroup label="Bezpieczeństwo">
                 <option value="hibp_wyciekle_haslo">Wyciekłe hasło</option>
                 <option value="slabe_haslo">Słabe hasło</option>
+                <option value="sesja_uniewaznienie">Unieważnienie sesji</option>
                 <option value="captcha_fail">Błędna CAPTCHA</option>
               </optgroup>
               <optgroup label="Backup">
