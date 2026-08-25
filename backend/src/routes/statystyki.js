@@ -13,6 +13,7 @@ router.get('/', requireAdmin, async (req, res) => {
       cacheHit,
       pgStatStatements,
       aktywnosci,
+      hibpStats,
     ] = await Promise.allSettled([
 
       // Rozmiar bazy + indeksów
@@ -93,6 +94,18 @@ router.get('/', requireAdmin, async (req, res) => {
           AND query NOT LIKE '%pg_stat_activity%'
         ORDER BY query_start
       `),
+
+      // Statystyki HIBP — nowe logi + dane historyczne z uzytkownicy
+      db.query(`
+        SELECT
+          (SELECT COUNT(*) FROM hibp_logi) AS lacznie,
+          (SELECT COUNT(*) FROM hibp_logi WHERE wycieklo = TRUE) AS wyciekle,
+          (SELECT COUNT(*) FROM hibp_logi WHERE wycieklo = FALSE) AS bezpieczne,
+          (SELECT COUNT(*) FROM hibp_logi WHERE created_at >= NOW() - INTERVAL '30 days') AS ostatnie_30dni,
+          (SELECT COUNT(*) FROM hibp_logi WHERE created_at >= NOW() - INTERVAL '7 days') AS ostatnie_7dni,
+          (SELECT COUNT(*) FROM uzytkownicy WHERE hibp_sprawdzono_at IS NOT NULL) AS kont_sprawdzonych,
+          (SELECT COUNT(*) FROM uzytkownicy WHERE hibp_wycieklo = TRUE) AS kont_wyciekle
+      `),
     ]);
 
     const get = (result) => result.status === 'fulfilled' ? result.value.rows : null;
@@ -105,6 +118,7 @@ router.get('/', requireAdmin, async (req, res) => {
       top_zapytania: get(pgStatStatements) || null,
       aktywne: get(aktywnosci) || [],
       pg_stat_statements_dostepne: pgStatStatements.status === 'fulfilled',
+      hibp: get(hibpStats)?.[0] || null,
     });
   } catch (err) {
     console.error(err);

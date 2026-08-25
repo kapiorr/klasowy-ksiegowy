@@ -166,3 +166,9 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS push_subscriptions_endpoint_idx ON push_subscriptions ((subscription->>'endpoint'));
+
+CREATE TABLE IF NOT EXISTS hibp_logi (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  wycieklo BOOLEAN NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

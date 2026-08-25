@@ -1,4 +1,15 @@
 import crypto from 'crypto';
+import db from './db.js';
+
+// Zapisz każde zapytanie do HIBP w bazie
+async function logHibpQuery(wycieklo) {
+  try {
+    await db.query(
+      `INSERT INTO hibp_logi (wycieklo, created_at) VALUES ($1, NOW())`,
+      [wycieklo]
+    );
+  } catch { /* tabela może nie istnieć jeszcze */ }
+}
 
 // Sprawdza czy hasło jest na liście wyciekłych przez API HIBP k-anonymity
 // Zwraca { wyciekło: bool, liczba: int } lub null przy błędzie API
@@ -19,9 +30,11 @@ export async function sprawdzHIBP(haslo) {
     for (const line of text.split('\n')) {
       const [hash, count] = line.trim().split(':');
       if (hash === suffix) {
+        await logHibpQuery(true);
         return { wyciekło: true, liczba: parseInt(count) };
       }
     }
+    await logHibpQuery(false);
     return { wyciekło: false, liczba: 0 };
   } catch {
     return null; // błąd sieci/timeout — nie blokujemy

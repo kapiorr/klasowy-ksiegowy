@@ -141,6 +141,36 @@ export default function Statystyki() {
         </div>
       </div>
 
+
+      {/* HIBP */}
+      {data.hibp && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 mb-6 p-5">
+          <h2 className="font-display font-700 text-ink dark:text-gray-100 mb-1">🔐 Sprawdzenia HIBP (Have I Been Pwned)</h2>
+          <p className="font-body text-xs text-sage-400 mb-4">Dane historyczne z kont użytkowników + log zapytań od ostatniej aktualizacji</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="bg-sage-50 dark:bg-gray-700 rounded-xl p-4">
+              <div className="font-body text-xs text-sage-500 dark:text-gray-400 mb-1">Kont sprawdzonych</div>
+              <div className="font-mono text-2xl font-700 text-ink dark:text-gray-100">{parseInt(data.hibp.kont_sprawdzonych).toLocaleString('pl-PL')}</div>
+            </div>
+            <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl p-4">
+              <div className="font-body text-xs text-rose-500 mb-1">Kont z wyciekłym hasłem</div>
+              <div className="font-mono text-2xl font-700 text-rose-600">{parseInt(data.hibp.kont_wyciekle).toLocaleString('pl-PL')}</div>
+            </div>
+            <div className="bg-sage-50 dark:bg-gray-700 rounded-xl p-4">
+              <div className="font-body text-xs text-sage-500 dark:text-gray-400 mb-1">Zapytań do API (log)</div>
+              <div className="font-mono text-2xl font-700 text-ink dark:text-gray-100">{parseInt(data.hibp.lacznie).toLocaleString('pl-PL')}</div>
+            </div>
+            <div className="bg-sage-50 dark:bg-gray-700 rounded-xl p-4">
+              <div className="font-body text-xs text-sage-500 dark:text-gray-400 mb-1">Ostatnie 7 dni</div>
+              <div className="font-mono text-2xl font-700 text-ink dark:text-gray-100">{parseInt(data.hibp.ostatnie_7dni).toLocaleString('pl-PL')}</div>
+            </div>
+            <div className="bg-sage-50 dark:bg-gray-700 rounded-xl p-4">
+              <div className="font-body text-xs text-sage-500 dark:text-gray-400 mb-1">Ostatnie 30 dni</div>
+              <div className="font-mono text-2xl font-700 text-ink dark:text-gray-100">{parseInt(data.hibp.ostatnie_30dni).toLocaleString('pl-PL')}</div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Połączenia */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 mb-6 p-5">
         <h2 className="font-display font-700 text-ink dark:text-gray-100 mb-3">Połączenia</h2>

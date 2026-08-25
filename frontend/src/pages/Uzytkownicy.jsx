@@ -20,6 +20,16 @@ function DodajModal({ ucznowie, onClose, onSave }) {
   const [linkExpiry, setLinkExpiry] = useState(15);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
+  const [showHaslo, setShowHaslo] = useState(false);
+
+  // Generuj bezpieczne hasło przy otwarciu formularza
+  useEffect(() => {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+    const arr = new Uint8Array(16);
+    crypto.getRandomValues(arr);
+    const haslo = Array.from(arr).map(b => chars[b % chars.length]).join('');
+    setForm(f => ({ ...f, haslo }));
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault(); setSaving(true); setErr('');
@@ -61,10 +71,45 @@ function DodajModal({ ucznowie, onClose, onSave }) {
             <label className="block font-body text-sm font-500 text-ink mb-1">
               {wyslijMail ? 'Hasło (opcjonalne — użytkownik ustawi przez link)' : 'Hasło * (min. 8 znaków)'}
             </label>
-            <input type="password" value={form.haslo} onChange={e => setForm(f => ({ ...f, haslo: e.target.value }))}
-              className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600 disabled:opacity-40"
-              minLength={wyslijMail ? 0 : 8} disabled={wyslijMail}
-              placeholder={wyslijMail ? 'zostanie ustawione przez użytkownika' : ''} />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input type={showHaslo ? 'text' : 'password'} value={form.haslo}
+                  onChange={e => setForm(f => ({ ...f, haslo: e.target.value }))}
+                  className="w-full border border-sage-200 dark:border-gray-600 rounded-xl px-4 py-2.5 pr-10 font-body text-ink dark:text-gray-100 bg-white dark:bg-gray-700 focus:outline-none focus:border-sage-600 disabled:opacity-40"
+                  minLength={wyslijMail ? 0 : 8} disabled={wyslijMail}
+                  placeholder={wyslijMail ? 'zostanie ustawione przez użytkownika' : ''} />
+                {!wyslijMail && (
+                  <button type="button" onClick={() => setShowHaslo(s => !s)}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${showHaslo ? 'text-rose-500' : 'text-sage-400 hover:text-sage-600'}`}
+                    title={showHaslo ? 'Ukryj hasło' : 'Pokaż hasło'}>
+                    {showHaslo ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    )}
+                  </button>
+                )}
+              </div>
+              {!wyslijMail && (
+                <button type="button" title="Generuj nowe hasło" onClick={() => {
+                  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+                  const arr = new Uint8Array(16);
+                  crypto.getRandomValues(arr);
+                  const haslo = Array.from(arr).map(b => chars[b % chars.length]).join('');
+                  setForm(f => ({ ...f, haslo }));
+                  setShowHaslo(true);
+                }} className="border border-sage-200 text-sage-500 hover:text-sage-700 hover:bg-sage-50 rounded-xl px-3 py-2.5 text-sm">
+                  ↺
+                </button>
+              )}
+            </div>
           </div>
           <div>
             <label className="block font-body text-sm font-500 text-ink mb-1">Email</label>
@@ -243,34 +288,6 @@ function EdytujModal({ user, ucznowie, onClose, onSave }) {
                 {ucznowie.map(u => <option key={u.id} value={u.id}>{u.nazwisko} {u.imie}</option>)}
               </select>
             </div>
-          {/* Blokada aplikacji */}
-          {lockStatus && (
-            <div className="bg-sage-50 dark:bg-gray-700 border border-sage-100 dark:border-gray-600 rounded-xl p-4">
-              <div className="font-body text-sm font-600 text-ink dark:text-gray-100 mb-2">🔒 Blokada aplikacji (mobile)</div>
-              {!lockStatus.ma_pin && lockStatus.liczba_kluczy === 0 ? (
-                <div className="font-body text-xs text-sage-400">Brak ustawionej blokady</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {lockStatus.ma_pin && (
-                    <button type="button" onClick={async () => {
-                      await adminDeleteUserPin(user.id);
-                      setLockStatus(s => ({ ...s, ma_pin: false }));
-                    }} className="text-xs border border-amber-300 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
-                      Usuń PIN
-                    </button>
-                  )}
-                  {lockStatus.liczba_kluczy > 0 && (
-                    <button type="button" onClick={async () => {
-                      await adminDeleteUserCredentials(user.id);
-                      setLockStatus(s => ({ ...s, liczba_kluczy: 0 }));
-                    }} className="text-xs border border-amber-300 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-100">
-                      Usuń klucze biometryczne ({lockStatus.liczba_kluczy})
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
           {err && <div className="text-rose-500 font-body text-sm">{err}</div>}
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
@@ -399,6 +416,7 @@ export default function Uzytkownicy() {
   const [ucznowie, setUcznowie] = useState([]);
   const [dodajModal, setDodajModal] = useState(false);
   const [edytujUser, setEdytujUser] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(null);
   const [importModal, setImportModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState({ text: '', type: 'ok' });
@@ -530,57 +548,99 @@ export default function Uzytkownicy() {
                 {u.uczen_imie && <div className="font-body text-xs text-sage-400 mt-0.5">↳ {u.uczen_imie} {u.uczen_nazwisko}</div>}
               </div>
               {isAdmin && (
-                <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
-                  <button onClick={() => setEdytujUser(u)}
-                    className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1 rounded-lg hover:bg-sage-50">
-                    Edytuj
-                  </button>
-                  <button onClick={() => handleMfaWymuszone(u.id, u.mfa_wymuszone)}
-                    className={`text-xs font-body px-3 py-1 rounded-lg border transition-colors ${
-                      u.mfa_wymuszone ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-sage-200 text-sage-400 hover:border-sage-400'
-                    }`}>
-                    {u.mfa_wymuszone ? 'MFA ✓' : 'MFA'}
-                  </button>
-                  {u.mfa_enabled && (
-                    <button
-                      onClick={() => u.id !== user?.id && handleResetMfa(u.id)}
-                      disabled={u.id === user?.id}
-                      title={u.id === user?.id ? 'Własne MFA wyłącz w Ustawieniach' : 'Reset MFA'}
-                      className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
-                        u.id === user?.id
-                          ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                          : 'border-rose-200 text-rose-500 hover:bg-rose-50'
+                <div className="flex items-center gap-1.5">
+                  {/* Desktop: wszystkie przyciski */}
+                  <div className="hidden sm:flex items-center gap-1.5 flex-wrap">
+                    <button onClick={() => setEdytujUser(u)}
+                      className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1 rounded-lg hover:bg-sage-50">
+                      Edytuj
+                    </button>
+                    <button onClick={() => handleMfaWymuszone(u.id, u.mfa_wymuszone)}
+                      className={`text-xs font-body px-3 py-1 rounded-lg border transition-colors ${
+                        u.mfa_wymuszone ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-sage-200 text-sage-400 hover:border-sage-400'
                       }`}>
-                      Reset MFA
+                      {u.mfa_wymuszone ? 'MFA ✓' : 'MFA'}
                     </button>
-                  )}
-                  <button onClick={() => handleWymusHaslo(u)}
-                    className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
-                      u.force_password_change
-                        ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
-                        : 'border-amber-200 text-amber-600 hover:bg-amber-50'
-                    }`}>
-                    {u.force_password_change ? 'Cofnij wymuszenie' : 'Wymuś hasło'}
-                  </button>
-                  {u.id !== user?.id && (
-                    <button onClick={async () => {
-                      if (!await confirm(`Unieważnić sesję użytkownika ${u.login}? Zostanie wylogowany przy następnym requeście.`)) return;
-                      await wylogujUzytkownika(u.id);
-                      showMsg('Sesja unieważniona');
-                    }} className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
-                      ⎋ Wyloguj
+                    {u.mfa_enabled && (
+                      <button onClick={() => u.id !== user?.id && handleResetMfa(u.id)}
+                        disabled={u.id === user?.id}
+                        className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
+                          u.id === user?.id ? 'border-gray-200 text-gray-300 cursor-not-allowed' : 'border-rose-200 text-rose-500 hover:bg-rose-50'
+                        }`}>
+                        Reset MFA
+                      </button>
+                    )}
+                    <button onClick={() => handleWymusHaslo(u)}
+                      className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
+                        u.force_password_change ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100' : 'border-amber-200 text-amber-600 hover:bg-amber-50'
+                      }`}>
+                      {u.force_password_change ? 'Cofnij wymuszenie' : 'Wymuś hasło'}
                     </button>
-                  )}
-                  <button onClick={() => handleDelete(u.id)}
-                    disabled={u.id === user?.id}
-                    title={u.id === user?.id ? 'Nie możesz usunąć własnego konta' : ''}
-                    className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
-                      u.id === user?.id
-                        ? 'border-gray-200 text-gray-300 cursor-not-allowed'
-                        : 'border-rose-200 text-rose-500 hover:bg-rose-50'
-                    }`}>
-                    Usuń
-                  </button>
+                    {u.id !== user?.id && (
+                      <button onClick={async () => {
+                        if (!await confirm(`Unieważnić sesję użytkownika ${u.login}?`)) return;
+                        await wylogujUzytkownika(u.id);
+                        showMsg('Sesja unieważniona');
+                      }} className="text-xs font-body border border-amber-200 text-amber-600 px-3 py-1 rounded-lg hover:bg-amber-50">
+                        ⎋ Wyloguj
+                      </button>
+                    )}
+                    <button onClick={() => handleDelete(u.id)} disabled={u.id === user?.id}
+                      className={`text-xs font-body border px-3 py-1 rounded-lg transition-colors ${
+                        u.id === user?.id ? 'border-gray-200 text-gray-300 cursor-not-allowed' : 'border-rose-200 text-rose-500 hover:bg-rose-50'
+                      }`}>
+                      Usuń
+                    </button>
+                  </div>
+                  {/* Mobile: przycisk Edytuj + menu ··· */}
+                  <div className="flex sm:hidden items-center gap-1.5">
+                    <button onClick={() => setEdytujUser(u)}
+                      className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1.5 rounded-lg hover:bg-sage-50">
+                      Edytuj
+                    </button>
+                    <div className="relative">
+                      <button onClick={() => setMenuOpen(menuOpen === u.id ? null : u.id)}
+                        className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1.5 rounded-lg hover:bg-sage-50">
+                        ···
+                      </button>
+                      {menuOpen === u.id && (
+                        <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 border border-sage-100 dark:border-gray-700 rounded-xl shadow-lg z-10 min-w-[160px] py-1">
+                          <button onClick={() => { handleMfaWymuszone(u.id, u.mfa_wymuszone); setMenuOpen(null); }}
+                            className="w-full text-left text-xs font-body px-4 py-2.5 hover:bg-sage-50 dark:hover:bg-gray-700 text-ink dark:text-gray-100">
+                            {u.mfa_wymuszone ? '✓ MFA wymuszone' : 'Wymuś MFA'}
+                          </button>
+                          {u.mfa_enabled && (
+                            <button onClick={() => { if (u.id !== user?.id) { handleResetMfa(u.id); setMenuOpen(null); } }}
+                              disabled={u.id === user?.id}
+                              className="w-full text-left text-xs font-body px-4 py-2.5 hover:bg-sage-50 dark:hover:bg-gray-700 text-rose-500 disabled:text-gray-300">
+                              Reset MFA
+                            </button>
+                          )}
+                          <button onClick={() => { handleWymusHaslo(u); setMenuOpen(null); }}
+                            className="w-full text-left text-xs font-body px-4 py-2.5 hover:bg-sage-50 dark:hover:bg-gray-700 text-amber-600">
+                            {u.force_password_change ? 'Cofnij wymuszenie hasła' : 'Wymuś zmianę hasła'}
+                          </button>
+                          {u.id !== user?.id && (
+                            <button onClick={async () => {
+                              setMenuOpen(null);
+                              if (!await confirm(`Unieważnić sesję ${u.login}?`)) return;
+                              await wylogujUzytkownika(u.id);
+                              showMsg('Sesja unieważniona');
+                            }} className="w-full text-left text-xs font-body px-4 py-2.5 hover:bg-sage-50 dark:hover:bg-gray-700 text-amber-600">
+                              ⎋ Wyloguj
+                            </button>
+                          )}
+                          <div className="border-t border-sage-50 dark:border-gray-700 mt-1 pt-1">
+                            <button onClick={() => { setMenuOpen(null); handleDelete(u.id); }}
+                              disabled={u.id === user?.id}
+                              className="w-full text-left text-xs font-body px-4 py-2.5 hover:bg-rose-50 dark:hover:bg-rose-900/20 text-rose-500 disabled:text-gray-300">
+                              Usuń
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

@@ -125,18 +125,18 @@ function AutoBackupy() {
               {lista.map(b => {
                 const typInfo = TYP_LABEL[b.typ] || TYP_LABEL.daily;
                 return (
-                  <div key={b.nazwa} className="flex items-center justify-between px-4 py-3 gap-4 hover:bg-sage-50/50 dark:hover:bg-gray-700/50">
+                  <div key={b.nazwa} className="flex items-center justify-between px-4 py-3 gap-2 hover:bg-sage-50/50 dark:hover:bg-gray-700/50">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <span className={`font-mono text-xs px-2 py-0.5 rounded-full font-600 ${typInfo.cls}`}>{typInfo.label}</span>
                         {b.encrypted && <span className="font-mono text-xs px-2 py-0.5 rounded-full font-600 bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">🔒 enc</span>}
                         <span className="font-body text-sm font-500 text-ink dark:text-gray-100">{new Date(b.created_at).toLocaleString('pl-PL')}</span>
                       </div>
                       <div className="font-body text-xs text-sage-400">{(b.rozmiar / 1024).toFixed(1)} KB</div>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex flex-col sm:flex-row gap-1.5 flex-shrink-0">
                       <button onClick={() => downloadAutoBackup(b.nazwa)}
-                        className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1 rounded-lg hover:bg-sage-50">
+                        className="text-xs font-body border border-sage-200 text-sage-600 px-3 py-1.5 rounded-lg hover:bg-sage-50">
                         ⬇ Pobierz
                       </button>
                       <button onClick={async () => {
