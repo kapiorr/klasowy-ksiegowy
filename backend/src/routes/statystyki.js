@@ -104,7 +104,8 @@ router.get('/', requireAdmin, async (req, res) => {
           (SELECT COUNT(*) FROM hibp_logi WHERE created_at >= NOW() - INTERVAL '30 days') AS ostatnie_30dni,
           (SELECT COUNT(*) FROM hibp_logi WHERE created_at >= NOW() - INTERVAL '7 days') AS ostatnie_7dni,
           (SELECT COUNT(*) FROM uzytkownicy WHERE hibp_sprawdzono_at IS NOT NULL) AS kont_sprawdzonych,
-          (SELECT COUNT(*) FROM uzytkownicy WHERE hibp_wycieklo = TRUE) AS kont_wyciekle
+          (SELECT COUNT(*) FROM uzytkownicy WHERE hibp_wycieklo = TRUE) AS kont_wyciekle,
+          (SELECT COUNT(*) FROM uzytkownicy WHERE haslo_slabe = TRUE) AS kont_slabe_haslo
       `),
     ]);
 
