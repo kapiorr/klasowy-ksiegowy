@@ -2,7 +2,19 @@ import crypto from 'crypto';
 import sharp from 'sharp';
 
 const SECRET = () => process.env.JWT_SECRET || 'captcha-secret';
-const MAX_AGE_MS = 5 * 60 * 1000; // 5 minut
+const MAX_AGE_MS = 5 * 60 * 1000;
+const usedTokens = new Set(); // unieważnione tokeny
+
+// Czyść stare tokeny co minutę żeby nie rosnąć bez końca
+setInterval(() => {
+  const now = Date.now();
+  for (const t of usedTokens) {
+    const data = verifyToken(t);
+    if (!data) { usedTokens.delete(t); continue; }
+    const ts = parseInt(data.split('|')[1] || '0');
+    if (now - ts > MAX_AGE_MS) usedTokens.delete(t);
+  }
+}, 60 * 1000);
 
 function generateTask() {
   const ops = ['+', '-', '*'];
@@ -64,12 +76,15 @@ export async function captchaImage(req, res) {
 // Weryfikacja: token z obrazka + odpowiedź użytkownika
 export function verifyCaptcha(token, input) {
   if (!token || !input) return false;
+  if (usedTokens.has(token)) return false; // już użyty
   const data = verifyToken(token);
   if (!data) return false;
   const [answer, tsStr] = data.split('|');
   const ts = parseInt(tsStr);
   if (isNaN(ts) || Date.now() - ts > MAX_AGE_MS) return false;
-  return parseInt(input) === parseInt(answer);
+  if (parseInt(input) !== parseInt(answer)) return false;
+  usedTokens.add(token); // unieważnij token
+  return true;
 }
 
 export function requireCaptcha(req, res, next) {

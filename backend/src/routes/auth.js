@@ -183,7 +183,7 @@ router.post('/rejestracja', async (req, res) => {
       const header = req.headers.authorization;
       if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Wymagana autoryzacja' });
       try {
-        const decoded = jwt.verify(header.slice(7), process.env.JWT_SECRET);
+        const decoded = jwt.verify(header.slice(7), process.env.JWT_SECRET, { algorithms: ['HS256'] });
         if (decoded.rola !== 'ksiegowy') return res.status(403).json({ error: 'Brak uprawnień' });
       } catch {
         return res.status(401).json({ error: 'Nieprawidłowy token' });

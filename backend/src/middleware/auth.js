@@ -11,7 +11,7 @@ export function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Brak tokenu' });
   }
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 
     // Sprawdź czy sesja nie została unieważniona (np. po wysłaniu linku reset)
     db.query(

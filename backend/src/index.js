@@ -43,7 +43,7 @@ app.use(cors({
   credentials: true, // wymagane dla httpOnly cookie
 }));
 
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '15mb' }));
 app.use(cookieParser());
 
 // Globalny rate limit — 200 requestów / 15 min per IP
