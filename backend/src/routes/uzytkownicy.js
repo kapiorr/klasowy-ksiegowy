@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../db.js';
 import { hashHaslo } from '../crypto.js';
 import { walidujHasloHIBP } from '../hibp.js';
+import { encryptField, decryptField, hmacField } from '../fieldCrypto.js';
 import { walidujSilnoscHasla, PASSWORD_REQUIREMENTS_TEXT } from '../passwordPolicy.js';
 import { requireAuth, requireKsiegowy, requireAdmin } from '../middleware/auth.js';
 import { log, getIP } from '../logger.js';
@@ -10,6 +11,16 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
+
+function decryptUser(u) {
+  if (!u) return u;
+  return {
+    ...u,
+    email: decryptField(u.email_enc) || null,
+    telefon: decryptField(u.telefon_enc) || null,
+  };
+}
+
 
 function sanitizeCsv(val) {
   const s = String(val ?? '');
@@ -47,14 +58,14 @@ function walidujTelefon(tel) {
 router.get('/', requireKsiegowy, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT u.id, u.login, u.imie, u.nazwisko, u.rola, u.uczen_id, u.email, u.telefon,
+      `SELECT u.id, u.login, u.imie, u.nazwisko, u.rola, u.uczen_id, u.email_enc, u.email_hmac, u.telefon_enc,
               u.mfa_enabled, u.mfa_wymuszone, u.force_password_change, u.sms_powiadomienia, u.pomijaj_hibp,
               uc.imie AS uczen_imie, uc.nazwisko AS uczen_nazwisko
        FROM uzytkownicy u
        LEFT JOIN ucznowie uc ON uc.id = u.uczen_id
        ORDER BY u.created_at`
     );
-    res.json(result.rows);
+    res.json(result.rows.map(decryptUser));
   } catch (err) {
     res.status(500).json({ error: 'Błąd serwera' });
   }
@@ -93,20 +104,24 @@ router.post('/', async (req, res) => {
 
     // Sprawdź unikalność loginu i emaila
     const conflict = await db.query(
-      `SELECT login, email FROM uzytkownicy WHERE login=$1 OR (email=$2 AND email IS NOT NULL AND $2 != '')`,
+      `SELECT login, email_hmac FROM uzytkownicy WHERE login=$1 OR (email_hmac=$2 AND email_hmac IS NOT NULL AND $2 != '')`,
       [login, email || '']
     );
     if (conflict.rows.length > 0) {
       const row = conflict.rows[0];
       if (row.login === login) return res.status(409).json({ error: 'Login już zajęty' });
-      if (email && row.email === email) return res.status(409).json({ error: 'Email już zajęty' });
+      if (email && row.email_hmac === hmacField(email)) return res.status(409).json({ error: 'Email już zajęty' });
     }
 
+    const emailEnc = encryptField(email);
+    const emailHmac = hmacField(email);
+    const telefonEnc = encryptField(formatTelefon(req.body.telefon));
+
     const result = await db.query(
-      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia, pomijaj_hibp)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia, pomijaj_hibp`,
-      [login, haslo_hash, rola, uczen_id || null, email || null, imie || null, nazwisko || null, formatTelefon(req.body.telefon), req.body.sms_powiadomienia || false, pomijajHIBP]
+      `INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email_enc, email_hmac, imie, nazwisko, telefon_enc, sms_powiadomienia, pomijaj_hibp)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING id, login, rola, uczen_id, email_enc, email_hmac, imie, nazwisko, telefon_enc, sms_powiadomienia, pomijaj_hibp`,
+      [login, haslo_hash, rola, uczen_id || null, emailEnc, emailHmac, imie || null, nazwisko || null, telefonEnc, req.body.sms_powiadomienia || false, pomijajHIBP]
     );
     await log({ uzytkownik_id: req.user?.id, ip: getIP(req), akcja: 'add_uzytkownik', zasob: req.originalUrl,
       szczegoly: `${login} | rola: ${rola}${imie || nazwisko ? ' | ' + [imie, nazwisko].filter(Boolean).join(' ') : ''}` });
@@ -152,7 +167,7 @@ router.post('/wyloguj-wszystkich', requireAdmin, async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const result = await db.query(
-      'SELECT id, login, rola, uczen_id, email, telefon, sms_powiadomienia FROM uzytkownicy WHERE id=$1',
+      'SELECT id, login, rola, uczen_id, email_enc, telefon_enc, sms_powiadomienia FROM uzytkownicy WHERE id=$1',
       [req.user.id]
     );
     res.json(result.rows[0] || {});
@@ -179,7 +194,7 @@ router.patch('/me/sms', requireAuth, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   const { rola, email, uczen_id, imie, nazwisko } = req.body;
   try {
-    const stary = await db.query('SELECT login, rola, email, imie, nazwisko, telefon, uczen_id, sms_powiadomienia, pomijaj_hibp FROM uzytkownicy WHERE id=$1', [req.params.id]);
+    const stary = await db.query('SELECT login, rola, email_enc, email_hmac, imie, nazwisko, telefon_enc, uczen_id, sms_powiadomienia, pomijaj_hibp FROM uzytkownicy WHERE id=$1', [req.params.id]);
     const staryRow = stary.rows[0];
 
     // Rola podglad wymaga przypisanego ucznia
@@ -207,35 +222,44 @@ router.patch('/:id', requireAdmin, async (req, res) => {
     }
 
     // Sprawdź czy email nie jest zajęty przez innego użytkownika
-    if (email && email !== staryRow?.email) {
+    if (email && hmacField(email) !== staryRow?.email_hmac) {
       const emailConflict = await db.query(
-        'SELECT id FROM uzytkownicy WHERE email=$1 AND id!=$2',
+        'SELECT id FROM uzytkownicy WHERE email_hmac=$1 AND id!=$2',
         [email, req.params.id]
       );
       if (emailConflict.rows.length > 0) return res.status(409).json({ error: 'Email już zajęty' });
     }
 
+    // Przygotuj zaszyfrowane wartości przed UPDATE
+    const nowyEmail = email || null;
+    const nowyTelefon = req.body.telefon !== undefined ? formatTelefon(req.body.telefon) : decryptField(staryRow?.telefon_enc) || null;
+    const updateEmailEnc = nowyEmail ? encryptField(nowyEmail) : null;
+    const updateEmailHmac = nowyEmail ? hmacField(nowyEmail) : null;
+    const updateTelefonEnc = nowyTelefon ? encryptField(nowyTelefon) : null;
+
     const result = await db.query(
       `UPDATE uzytkownicy SET
         rola = COALESCE($1, rola),
-        email = $2,
-        uczen_id = $3,
-        imie = $4,
-        nazwisko = $5,
-        telefon = $7,
+        email_enc = $2,
+        email_hmac = $3,
+        uczen_id = $4,
+        imie = $5,
+        nazwisko = $6,
+        telefon_enc = $7,
         sms_powiadomienia = $8,
         pomijaj_hibp = $9
-       WHERE id = $6
-       RETURNING id, login, rola, uczen_id, email, imie, nazwisko, telefon, sms_powiadomienia, pomijaj_hibp, mfa_enabled, mfa_wymuszone, force_password_change`,
+       WHERE id = $10
+       RETURNING id, login, rola, uczen_id, email_enc, imie, nazwisko, telefon_enc, sms_powiadomienia, pomijaj_hibp, mfa_enabled, mfa_wymuszone, force_password_change`,
       [
-        rola || null, email || null, uczen_id || null, imie || null, nazwisko || null,
-        req.params.id,
-        req.body.telefon !== undefined ? formatTelefon(req.body.telefon) : staryRow?.telefon || null,
+        rola || null, updateEmailEnc, updateEmailHmac, uczen_id || null, imie || null, nazwisko || null,
+        updateTelefonEnc,
         req.body.sms_powiadomienia !== undefined ? !!req.body.sms_powiadomienia : staryRow?.sms_powiadomienia || false,
         req.body.pomijaj_hibp !== undefined ? !!req.body.pomijaj_hibp : staryRow?.pomijaj_hibp || false,
+        req.params.id,
       ]
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'Nie znaleziono' });
+
     const zmiany = [];
     if (staryRow) {
       if (rola && staryRow.rola !== rola) {
@@ -243,8 +267,8 @@ router.patch('/:id', requireAdmin, async (req, res) => {
         // Unieważnij sesję przy zmianie roli — stary JWT miał starą rolę
         await db.query('UPDATE uzytkownicy SET sessions_invalidated_at=NOW() WHERE id=$1', [req.params.id]);
       }
-      if (staryRow.email !== (email || null)) zmiany.push(`email: ${staryRow.email || '—'} → ${email || '—'}`);
-      if (staryRow.telefon !== (req.body.telefon || null)) zmiany.push(`telefon: ${staryRow.telefon || '—'} → ${req.body.telefon || '—'}`);
+      if (decryptField(staryRow.email_enc) !== (email || null)) zmiany.push(`email: ${decryptField(staryRow.email_enc) || '—'} → ${email || '—'}`);
+      if (decryptField(staryRow.telefon_enc) !== (req.body.telefon || null)) zmiany.push(`telefon: zmieniony`);
       if (imie && staryRow.imie !== (imie || null)) zmiany.push(`imię: ${staryRow.imie || '—'} → ${imie}`);
       if (nazwisko && staryRow.nazwisko !== (nazwisko || null)) zmiany.push(`nazwisko: ${staryRow.nazwisko || '—'} → ${nazwisko}`);
       const nowyUczen = uczen_id !== undefined ? (uczen_id || null) : staryRow.uczen_id;
@@ -375,9 +399,9 @@ router.post('/import-csv', requireAdmin, async (req, res) => {
       try {
         const haslo_hash = await hashHaslo(haslo);
         await client.query(
-          `INSERT INTO uzytkownicy (login, haslo_hash, rola, email, imie, nazwisko, telefon, sms_powiadomienia, force_password_change)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)`,
-          [login, haslo_hash, rola, email || null, imie || null, nazwisko || null, telFormatted, smsEnabled]
+          `INSERT INTO uzytkownicy (login, haslo_hash, rola, email_enc, email_hmac, imie, nazwisko, telefon_enc, sms_powiadomienia, force_password_change)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)`,
+          [login, haslo_hash, rola, encryptField(email), hmacField(email), imie || null, nazwisko || null, encryptField(telFormatted), smsEnabled]
         );
         results.dodano++;
       } catch (e) {
@@ -402,10 +426,11 @@ router.post('/import-csv', requireAdmin, async (req, res) => {
 // POST /uzytkownicy/:id/wyslij-zaproszenie — wyślij mail powitalny z linkiem
 router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
   try {
-    const result = await db.query('SELECT login, email FROM uzytkownicy WHERE id=$1', [req.params.id]);
+    const result = await db.query('SELECT login, email_enc FROM uzytkownicy WHERE id=$1', [req.params.id]);
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'Nie znaleziono użytkownika' });
-    if (!user.email) return res.status(400).json({ error: 'Użytkownik nie ma adresu email' });
+    const userEmail = decryptField(user.email_enc);
+    if (!userEmail) return res.status(400).json({ error: 'Użytkownik nie ma adresu email' });
 
     // Unieważnij stare tokeny resetu
     await db.query('UPDATE tokeny_reset SET wykorzystany=TRUE WHERE uzytkownik_id=$1', [req.params.id]);
@@ -432,10 +457,10 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
     const expiryLabel = minuty >= 10080 ? '7 dni' : minuty >= 7200 ? '5 dni' : minuty >= 2880 ? '2 dni'
       : minuty >= 1440 ? '1 dzien' : minuty >= 360 ? '6 godzin' : minuty >= 120 ? '2 godziny'
       : minuty >= 60 ? '1 godzine' : `${minuty} minut`;
-    await sendWelcome(user.email, user.login, resetUrl, expiryLabel);
+    await sendWelcome(userEmail, user.login, resetUrl, expiryLabel);
 
     await log({ uzytkownik_id: req.user.id, ip: getIP(req), akcja: 'edit_uzytkownik', zasob: req.originalUrl,
-      szczegoly: `${user.login} | wysłano zaproszenie na ${user.email}` });
+      szczegoly: `${user.login} | wysłano zaproszenie` });
 
     res.json({ ok: true });
   } catch (err) {
@@ -448,7 +473,7 @@ router.post('/:id/wyslij-zaproszenie', requireAdmin, async (req, res) => {
 router.get('/export-csv', requireKsiegowy, async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT u.login, u.imie, u.nazwisko, u.rola, u.email, u.telefon, u.sms_powiadomienia,
+      `SELECT u.login, u.imie, u.nazwisko, u.rola, u.email_enc, u.email_hmac, u.telefon_enc, u.sms_powiadomienia,
               uc.imie AS uczen_imie, uc.nazwisko AS uczen_nazwisko
        FROM uzytkownicy u
        LEFT JOIN ucznowie uc ON uc.id = u.uczen_id
@@ -461,8 +486,8 @@ router.get('/export-csv', requireKsiegowy, async (req, res) => {
       sanitizeCsv(r.imie),
       sanitizeCsv(r.nazwisko),
       sanitizeCsv(r.rola),
-      sanitizeCsv(r.email),
-      sanitizeCsv(r.telefon),
+      sanitizeCsv(decryptField(r.email_enc)),
+      sanitizeCsv(decryptField(r.telefon_enc)),
       r.sms_powiadomienia ? 'tak' : 'nie',
       sanitizeCsv(r.uczen_imie),
       sanitizeCsv(r.uczen_nazwisko),

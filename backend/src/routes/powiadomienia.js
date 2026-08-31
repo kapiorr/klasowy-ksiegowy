@@ -75,14 +75,14 @@ export async function czyPowiadamiac(uzytkownikId, typ) {
 export async function adminowieDoPowiadomienia(typ) {
   try {
     const result = await db.query(
-      `SELECT u.id, u.email FROM uzytkownicy u
-       WHERE u.rola = 'admin' AND u.email IS NOT NULL
+      `SELECT u.id, u.email_enc FROM uzytkownicy u
+       WHERE u.rola = 'admin' AND u.email_enc IS NOT NULL
          AND (
            NOT EXISTS (SELECT 1 FROM admin_powiadomienia p WHERE p.uzytkownik_id = u.id)
            OR EXISTS (SELECT 1 FROM admin_powiadomienia p WHERE p.uzytkownik_id = u.id AND p.${typ} = TRUE)
          )`
     );
-    return result.rows;
+    return result.rows.map(r => ({ ...r, email: decryptField(r.email_enc) }));
   } catch {
     return [];
   }

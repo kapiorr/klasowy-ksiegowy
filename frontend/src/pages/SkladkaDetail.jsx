@@ -642,7 +642,7 @@ export default function SkladkaDetail() {
               const preview = await mailingPodglad(data.id);
               // Inicjalizuj per-user: email=true, sms=true jeśli ma tel i SMS włączone
               const m = new Map();
-              preview.odbiorcy.forEach(o => m.set(o.email, {
+              preview.odbiorcy.forEach(o => m.set(o.uzytkownik_id, {
                 email: true,
                 sms: smsEnabled && !!o.telefon && !!o.sms_powiadomienia,
               }));
@@ -850,7 +850,7 @@ export default function SkladkaDetail() {
                     <span className="font-body text-xs text-sage-400">Kwota</span>
                   </div>
                   {mailingModal.odbiorcy.map((o, i) => {
-                    const sel = mailingPerUser.get(o.email) || { email: true, sms: false };
+                    const sel = mailingPerUser.get(o.uzytkownik_id) || { email: true, sms: false };
                     const maaTel = !!o.telefon;
                     const smsWyl = maaTel && !o.sms_powiadomienia;
                     return (
@@ -858,7 +858,7 @@ export default function SkladkaDetail() {
                         {/* Email checkbox */}
                         <label className="flex items-center cursor-pointer" title="Email">
                           <input type="checkbox" checked={sel.email}
-                            onChange={() => setMailingPerUser(prev => { const m = new Map(prev); m.set(o.email, { ...sel, email: !sel.email }); return m; })}
+                            onChange={() => setMailingPerUser(prev => { const m = new Map(prev); m.set(o.uzytkownik_id, { ...sel, email: !sel.email }); return m; })}
                             className="rounded border-sage-300" />
                           <span className="font-body text-xs text-sage-500 ml-1">✉</span>
                         </label>
@@ -866,7 +866,7 @@ export default function SkladkaDetail() {
                         {smsEnabled && (
                           <label className="flex items-center cursor-pointer" title={!maaTel ? 'Brak telefonu' : smsWyl ? 'SMS wyłączone — możesz wymusić' : 'SMS'}>
                             <input type="checkbox" checked={sel.sms} disabled={!maaTel}
-                              onChange={() => setMailingPerUser(prev => { const m = new Map(prev); m.set(o.email, { ...sel, sms: !sel.sms }); return m; })}
+                              onChange={() => setMailingPerUser(prev => { const m = new Map(prev); m.set(o.uzytkownik_id, { ...sel, sms: !sel.sms }); return m; })}
                               className={`rounded border-sage-300 ${!maaTel ? 'opacity-30' : ''}`} />
                             <span className={`font-body text-xs ml-1 ${!maaTel ? 'text-sage-300' : smsWyl && sel.sms ? 'text-amber-500' : 'text-sage-500'}`}>
                               📱{smsWyl && sel.sms ? '⚠' : ''}
@@ -891,8 +891,8 @@ export default function SkladkaDetail() {
               </button>
               {mailingModal.odbiorcy.length > 0 && (
                 <button onClick={async () => {
-                  const emailIds = mailingModal.odbiorcy.filter(o => mailingPerUser.get(o.email)?.email).map(o => o.uzytkownik_id);
-                  const smsIds = mailingModal.odbiorcy.filter(o => mailingPerUser.get(o.email)?.sms).map(o => o.uzytkownik_id);
+                  const emailIds = mailingModal.odbiorcy.filter(o => mailingPerUser.get(o.uzytkownik_id)?.email !== false).map(o => o.uzytkownik_id);
+                  const smsIds = mailingModal.odbiorcy.filter(o => mailingPerUser.get(o.uzytkownik_id)?.sms).map(o => o.uzytkownik_id);
                   if (!emailIds.length && !smsIds.length) return;
                   setMailingModal(null);
                   try {

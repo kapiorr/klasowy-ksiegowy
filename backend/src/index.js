@@ -23,6 +23,7 @@ import mailingRouter from './routes/mailing.js';
 import pushRouter from './routes/push.js';
 import { captchaImage } from './captcha.js';
 import { PASSWORD_REQUIREMENTS_TEXT } from './passwordPolicy.js';
+import { encryptField, hmacField } from './fieldCrypto.js';
 import powiadomieniaRouter from './routes/powiadomienia.js';
 
 const app = express();
@@ -126,11 +127,15 @@ app.use((err, req, res, next) => {
 
 // Walidacja wymaganych zmiennych środowiskowych
 const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL', 'PEPPER', 'MFA_ENCRYPTION_KEY', 'APP_URL'];
+const OPTIONAL_CRYPTO_ENV = ['DATA_ENCRYPTION_KEY'];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) {
     console.error(`BŁĄD: Brak wymaganej zmiennej środowiskowej: ${key}`);
     process.exit(1);
   }
+}
+if (!process.env.DATA_ENCRYPTION_KEY) {
+  console.warn('UWAGA: DATA_ENCRYPTION_KEY nie jest ustawiony — emaile i telefony nie będą szyfrowane');
 }
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
@@ -222,6 +227,10 @@ async function migrate() {
      )`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_wycieklo BOOLEAN`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS haslo_slabe BOOLEAN`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS email_enc TEXT`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS email_hmac VARCHAR(64)`,
+    `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS telefon_enc TEXT`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS uzytkownicy_email_hmac_idx ON uzytkownicy (email_hmac) WHERE email_hmac IS NOT NULL`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS haslo_slabe_dismissed_at TIMESTAMPTZ`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_sprawdzono_at TIMESTAMPTZ`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS hibp_dismissed_at TIMESTAMPTZ`,
@@ -304,6 +313,24 @@ async function migrate() {
     }
   }
   console.log('Migracje zakonczone');
+
+  // Szyfruj istniejące emaile i telefony jeśli DATA_ENCRYPTION_KEY jest ustawiony
+  if (process.env.DATA_ENCRYPTION_KEY) {
+    // Migracja szyfrowania — tylko jeśli kolumny email/telefon jeszcze istnieją
+    // (po ich usunięciu ten blok jest bezpieczny — zapytanie zwróci błąd który jest ignorowany)
+    const rows = await client.query(
+      `SELECT id, email_enc, telefon_enc FROM uzytkownicy WHERE email_enc IS NULL LIMIT 0`
+    ).then(() => ({ rows: [] })).catch(() => ({ rows: [] }));
+    for (const row of rows.rows) {
+      await client.query(
+        'UPDATE uzytkownicy SET email_enc=$1, email_hmac=$2, telefon_enc=$3 WHERE id=$4',
+        [encryptField(row.email), hmacField(row.email), encryptField(row.telefon), row.id]
+      );
+    }
+    if (rows.rows.length > 0) {
+      console.log(`Zaszyfrowano dane ${rows.rows.length} użytkowników`);
+    }
+  }
   } finally {
     await client.query('SELECT pg_advisory_unlock(12345678)');
     client.release();

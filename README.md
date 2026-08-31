@@ -64,6 +64,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 
 ### Bezpieczeństwo
 - Hasła hashowane **Argon2id** z pieprzem (PEPPER)
+- **Szyfrowanie pól osobowych** — emaile i telefony użytkowników szyfrowane w bazie AES-256-GCM z osobnym kluczem `DATA_ENCRYPTION_KEY`; wyszukiwanie przez HMAC-SHA256; backup eksportuje plaintext
 - **Polityka haseł** — min. 12 znaków, wielka i mała litera, cyfra, znak specjalny — egzekwowana przy każdej zmianie hasła i tworzeniu konta
 - Baner na dashboardzie gdy hasło nie spełnia wymagań (zamykalny, wraca po 5 dniach); analogicznie do banera HIBP
 - Tokeny **JWT** — 1h na desktopie, 30 dni na urządzeniach mobilnych
@@ -204,6 +205,14 @@ BACKUP_HOUR=5
 # UWAGA: bez tego klucza nie odszyfrsujesz zaszyfrowanych backupów!
 BACKUP_ENCRYPTION_KEY=
 
+# Szyfrowanie pól osobowych (email, telefon) w bazie danych — AES-256-GCM
+# Wygeneruj klucz (wybierz jedno):
+#   python3 -c "import secrets; print(secrets.token_hex(32))"
+#   python3 -c "import os; print(os.urandom(32).hex())"
+#   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Opcjonalne — bez klucza dane zapisywane w plaintext
+DATA_ENCRYPTION_KEY=
+
 # SMSAPI — wysyłka SMS (opcjonalne)
 # Token OAuth z panelu: https://ssl.smsapi.pl/react/oauth/manage
 # Pozostaw puste aby wyłączyć SMS
@@ -306,6 +315,7 @@ klasowy-ksiegowy/
 - `APP_URL` musi być ustawiony — używany jako dozwolone źródło CORS oraz w linkach w mailach
 - `DB_SSL=true` — włącz tylko przy zewnętrznej bazie danych (np. AWS RDS); lokalny Docker nie wymaga
 - `BACKUP_ENCRYPTION_KEY` — jeśli ustawiony, wszystkie backupy są szyfrowane AES-256-GCM; bez tego klucza zaszyfrowane backupy są nie do odczytania; przechowuj klucz osobno od backupów
+- `DATA_ENCRYPTION_KEY` — klucz szyfrowania pól osobowych (email, telefon) w bazie danych; opcjonalny — bez niego dane w plaintext; po ustawieniu migracja automatycznie szyfruje istniejące dane przy starcie; backup eksportuje plaintext niezależnie od tego klucza
 - `SMSAPI_TOKEN` — jeśli ustawiony, SMS jest dostępny w mailingach; użytkownik może sam wyłączyć w Ustawieniach; admin może wymusić wysyłkę
 - Zalecane wdrożenie za **Cloudflare Tunnel** — nie wymaga otwierania portów na routerze
 - Wszystkie połączenia wewnętrzne (backend↔baza) odbywają się wewnątrz sieci Docker

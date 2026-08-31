@@ -10,6 +10,7 @@ import { requireAdmin } from '../middleware/auth.js';
 import { sendAdminAlert } from '../mailer.js';
 import { getIP } from '../logger.js';
 import { encryptBackup, decryptBackup } from '../crypto.js';
+import { encryptField, hmacField, decryptField } from '../fieldCrypto.js';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.get('/', requireAdmin, async (req, res) => {
       db.query('SELECT * FROM skladka_ucznowie'),
       db.query('SELECT * FROM wplaty ORDER BY created_at'),
       db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
-      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, haslo_slabe, haslo_slabe_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
+      db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email_enc, email_hmac, telefon_enc, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, haslo_slabe, haslo_slabe_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
       db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
     db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle FROM admin_powiadomienia'),
     ]);
@@ -38,7 +39,13 @@ router.get('/', requireAdmin, async (req, res) => {
         skladka_ucznowie: skladkaUcznowie.rows,
         wplaty: wplaty.rows,
         wyplaty,
-        uzytkownicy: uzytkownicy.rows,
+        uzytkownicy: uzytkownicy.rows.map(u => ({
+          ...u,
+          email: decryptField(u.email_enc),
+          telefon: decryptField(u.telefon_enc),
+          // Nie eksportuj zaszyfrowanych kolumn — backup ma plaintext
+          email_enc: undefined, email_hmac: undefined, telefon_enc: undefined,
+        })),
         wyplaty_zalaczniki: wyplatyZalaczniki.rows,
         admin_powiadomienia: adminPowiadomienia.rows,
       },
@@ -146,15 +153,16 @@ router.post('/restore', requireAdmin, async (req, res) => {
     for (const r of uzytkownicy) {
       await client.query(
         `INSERT INTO uzytkownicy
-           (id, login, haslo_hash, imie, nazwisko, rola, email, telefon, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, haslo_slabe, haslo_slabe_dismissed_at, uczen_id,
+           (id, login, haslo_hash, imie, nazwisko, rola, email_enc, email_hmac, telefon_enc, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, haslo_slabe, haslo_slabe_dismissed_at, uczen_id,
             mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone,
             force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
          ON CONFLICT (id) DO UPDATE SET
            haslo_hash = EXCLUDED.haslo_hash,
            rola = EXCLUDED.rola,
-           email = EXCLUDED.email,
-           telefon = EXCLUDED.telefon,
+           email_enc = EXCLUDED.email_enc,
+           email_hmac = EXCLUDED.email_hmac,
+           telefon_enc = EXCLUDED.telefon_enc,
            sms_powiadomienia = EXCLUDED.sms_powiadomienia,
            pomijaj_hibp = EXCLUDED.pomijaj_hibp,
            hibp_wycieklo = EXCLUDED.hibp_wycieklo,
@@ -171,7 +179,10 @@ router.post('/restore', requireAdmin, async (req, res) => {
            force_password_change = EXCLUDED.force_password_change,
            awaiting_password_reset = EXCLUDED.awaiting_password_reset`,
         [r.id, r.login, r.haslo_hash, r.imie || null, r.nazwisko || null,
-         r.rola, r.email || null, r.telefon || null, r.sms_powiadomienia || false, r.pomijaj_hibp || false, r.hibp_wycieklo ?? null, r.hibp_sprawdzono_at || null, r.hibp_dismissed_at || null, r.haslo_slabe ?? null, r.haslo_slabe_dismissed_at || null, r.uczen_id || null,
+         r.rola, encryptField(r.email), hmacField(r.email), encryptField(r.telefon),
+         r.sms_powiadomienia || false, r.pomijaj_hibp || false,
+         r.hibp_wycieklo ?? null, r.hibp_sprawdzono_at || null, r.hibp_dismissed_at || null,
+         r.haslo_slabe ?? null, r.haslo_slabe_dismissed_at || null, r.uczen_id || null,
          r.mfa_secret || null, r.mfa_enabled || false,
          r.mfa_backup_codes || null, r.mfa_wymuszone || false,
          r.force_password_change || false, r.awaiting_password_reset || false,

@@ -21,8 +21,9 @@ CREATE TABLE uzytkownicy (
   haslo_hash TEXT NOT NULL,
   rola VARCHAR(20) NOT NULL CHECK (rola IN ('admin', 'ksiegowy', 'podglad', 'podglad_pelny')),
   uczen_id UUID REFERENCES ucznowie(id) ON DELETE SET NULL,
-  email VARCHAR(200) UNIQUE,
-  telefon VARCHAR(30),
+  email_enc TEXT,
+  email_hmac VARCHAR(64) UNIQUE,
+  telefon_enc TEXT,
   -- MFA
   mfa_secret TEXT,               -- zaszyfrowany AES-256-GCM
   mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,

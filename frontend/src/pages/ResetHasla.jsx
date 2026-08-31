@@ -29,7 +29,7 @@ export default function ResetHasla() {
   const submitHaslo = async (e) => {
     e.preventDefault();
     if (haslo !== haslo2) { setErr('Hasła nie są identyczne'); return; }
-    if (haslo.length < 8) { setErr('Hasło min. 8 znaków'); return; }
+    if (haslo.length < 12) { setErr('Hasło min. 12 znaków'); return; }
     setLoading(true); setErr('');
     try {
       await api.resetHaslaUstaw({ token, nowe_haslo: haslo });
@@ -99,7 +99,7 @@ export default function ResetHasla() {
                 <label className="block font-body text-sm font-500 text-ink mb-1.5">Nowe hasło</label>
                 <input type="password" value={haslo} onChange={e => setHaslo(e.target.value)}
                   className="w-full border border-sage-200 rounded-xl px-4 py-3 font-body text-ink focus:outline-none focus:border-sage-600"
-                  placeholder="min. 8 znaków" minLength={8} required />
+                  placeholder="min. 12 znaków, wielka/mała litera, cyfra, znak specjalny" minLength={12} required />
               </div>
               <div>
                 <label className="block font-body text-sm font-500 text-ink mb-1.5">Powtórz hasło</label>

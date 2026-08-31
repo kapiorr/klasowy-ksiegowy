@@ -82,6 +82,9 @@ export async function sendResetEmail(email, token) {
     <p>Otrzymaliśmy prośbę o reset hasła do Twojego konta.</p>
     <p>Kliknij przycisk poniżej aby ustawić nowe hasło. Link jest ważny przez <strong>1 godzine</strong>.</p>
     ${btn(url, 'Ustaw nowe haslo')}
+    <p style="background:#f8f9fa;border-left:3px solid #666;padding:10px 14px;margin:16px 0;font-size:13px;color:#444;">
+      <strong>Wymagania dotyczące hasła:</strong><br>${escapeHtml(PASSWORD_REQUIREMENTS_TEXT)}
+    </p>
     <p style="color:#999;font-size:12px;">Jesli nie prosiłeś o reset hasła, zignoruj te wiadomość.</p>
     <p style="color:#ccc;font-size:11px;word-break:break-all;">${url}</p>
   `;
@@ -100,6 +103,9 @@ export async function sendWelcome(email, login, resetUrl, expiryLabel = '15 minu
     <p>Zostalo dla Ciebie utworzone konto w aplikacji <strong>Klasowy Ksiegowy</strong>.</p>
     <p>Kliknij przycisk ponizej aby ustawic swoje haslo. Link jest wazny przez <strong>${escapeHtml(expiryLabel)}</strong>.</p>
     ${btn(resetUrl, 'Ustaw haslo')}
+    <p style="background:#f8f9fa;border-left:3px solid #666;padding:10px 14px;margin:16px 0;font-size:13px;color:#444;">
+      <strong>Wymagania dotyczące hasła:</strong><br>${escapeHtml(PASSWORD_REQUIREMENTS_TEXT)}
+    </p>
     <p style="color:#999;font-size:12px;">Jezeli nie spodziewales sie tego maila, zignoruj go.</p>
     <p style="color:#ccc;font-size:11px;word-break:break-all;">${resetUrl}</p>
   `;

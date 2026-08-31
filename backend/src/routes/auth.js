@@ -8,6 +8,7 @@ import qrcode from 'qrcode';
 import db from '../db.js';
 import { hashHaslo, verifyHaslo, generateResetToken, hashResetToken } from '../crypto.js';
 import { walidujHasloHIBP, sprawdzHIBP } from '../hibp.js';
+import { hmacField, decryptField, encryptField } from '../fieldCrypto.js';
 import { walidujSilnoscHasla, PASSWORD_REQUIREMENTS_TEXT } from '../passwordPolicy.js';
 import { requireCaptcha } from '../captcha.js';
 import { sendResetEmail } from '../mailer.js';
@@ -43,10 +44,14 @@ router.post('/login', async (req, res) => {
     }
 
     const result = await db.query(
-      'SELECT * FROM uzytkownicy WHERE login = $1 OR (email = $1 AND email IS NOT NULL)',
-      [login]
+      `SELECT * FROM uzytkownicy WHERE login = $1 OR (email_hmac = $2 AND email_hmac IS NOT NULL)`,
+      [login, hmacField(login)]
     );
     const user = result.rows[0];
+    if (user) {
+      user.email = user.email_enc ? decryptField(user.email_enc) : user.email;
+      user.telefon = user.telefon_enc ? decryptField(user.telefon_enc) : user.telefon;
+    }
 
     if (!user) {
       await log({ login_proba: login, ip, akcja: 'login_fail', sukces: false, szczegoly: 'Nieznany login' });
@@ -120,10 +125,10 @@ router.post('/login', async (req, res) => {
     const slabe = walidujSilnoscHasla(haslo).length > 0;
     if (slabe !== (user.haslo_slabe === true)) {
       db.query('UPDATE uzytkownicy SET haslo_slabe=$1 WHERE id=$2', [slabe, user.id]).catch(() => {});
-      if (slabe) {
-        log({ uzytkownik_id: user.id, ip, akcja: 'slabe_haslo', sukces: false,
-          szczegoly: `Użytkownik "${login}" loguje się ze słabym hasłem (nie spełnia wymagań)` }).catch(() => {});
-      }
+    }
+    if (slabe) {
+      log({ uzytkownik_id: user.id, ip, akcja: 'slabe_haslo', sukces: false,
+        szczegoly: `Użytkownik "${login}" loguje się ze słabym hasłem (nie spełnia wymagań)` }).catch(() => {});
     }
 
     // Pierwsze logowanie po założeniu konta — sprawdź HIBP w tle (nie blokuje odpowiedzi)
@@ -192,8 +197,8 @@ router.post('/rejestracja', async (req, res) => {
 
     const haslo_hash = await hashHaslo(haslo);
     const result = await db.query(
-      'INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email) VALUES ($1,$2,$3,$4,$5) RETURNING id, login, rola, uczen_id, email',
-      [login, haslo_hash, rola, uczen_id || null, email || null]
+      'INSERT INTO uzytkownicy (login, haslo_hash, rola, uczen_id, email_enc, email_hmac) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, login, rola, uczen_id',
+      [login, haslo_hash, rola, uczen_id || null, encryptField(process.env.ADMIN_EMAIL || null), hmacField(process.env.ADMIN_EMAIL || null)]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -252,7 +257,7 @@ router.post('/reset-hasla/wyslij', resetLimiter, async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email jest wymagany' });
 
   try {
-    const result = await db.query('SELECT * FROM uzytkownicy WHERE email=$1', [email]);
+    const result = await db.query('SELECT * FROM uzytkownicy WHERE email_hmac=$1', [hmacField(email)]);
     // Zawsze zwracamy 200 żeby nie ujawniać czy email istnieje
     if (!result.rows[0]) return res.json({ ok: true });
 

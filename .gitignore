@@ -1,35 +1,23 @@
-# Środowisko
+# Zmienne środowiskowe — nigdy nie commituj!
 .env
-*.env.local
+.env.local
+.env.*.local
 
-# Node
+# Node.js
 node_modules/
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # Build
 frontend/dist/
 frontend/.vite/
 
-# Docker
-postgres_data/
+# Backupy — mogą zawierać dane osobowe
+backup_data/*.json
+backup_data/*.json.enc
 
 # Logi
 *.log
-logs/
 
 # System
 .DS_Store
 Thumbs.db
-*.swp
-*.swo
-
-# IDE
-.vscode/
-.idea/
-*.iml
-
-# Backupy aplikacji
-*.zip
-backups/

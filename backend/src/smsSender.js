@@ -54,10 +54,10 @@ export async function sendSMSToUsers(uzytkownikIds, tresc) {
 
   for (const u of result.rows) {
     try {
-      await sendSMS(u.telefon, tresc);
+      await sendSMS(decryptField(u.telefon_enc), tresc);
       wyslano++;
     } catch (e) {
-      bledy.push(`${u.login} (${u.telefon}): ${e.message}`);
+      bledy.push(`${u.login}: ${e.message}`);
     }
   }
 
