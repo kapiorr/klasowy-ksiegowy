@@ -419,6 +419,7 @@ function PowiadomieniaSekcja() {
     { key: 'masowy_mailing', label: 'Masowa wysyłka wiadomości (>10 odbiorców)' },
     { key: 'restore_backup', label: 'Przywrócenie backupu' },
     { key: 'hibp_wyciekle', label: 'Logowanie z wyciekłym hasłem' },
+    { key: 'raport_dzienny', label: 'Dzienny raport bezpieczeństwa i aktywności (wysyłany o 7:00)' },
   ];
 
   useEffect(() => {

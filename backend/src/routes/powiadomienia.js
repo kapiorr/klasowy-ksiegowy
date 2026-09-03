@@ -13,6 +13,7 @@ const DOMYSLNE = {
   masowy_mailing: true,
   restore_backup: true,
   hibp_wyciekle: true,
+  raport_dzienny: false,
 };
 
 // GET /powiadomienia/admin — pobierz preferencje zalogowanego admina

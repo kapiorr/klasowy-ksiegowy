@@ -207,6 +207,7 @@ async function migrate() {
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS sms_powiadomienia BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE admin_powiadomienia ADD COLUMN IF NOT EXISTS captcha_fail BOOLEAN NOT NULL DEFAULT TRUE`,
+    `ALTER TABLE admin_powiadomienia ADD COLUMN IF NOT EXISTS raport_dzienny BOOLEAN NOT NULL DEFAULT FALSE`,
     `CREATE TABLE IF NOT EXISTS hibp_logi (
        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
        wycieklo BOOLEAN NOT NULL,

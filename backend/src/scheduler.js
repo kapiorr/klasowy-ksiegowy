@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import db from './db.js';
 import { encryptBackup } from './crypto.js';
+import { sendDailyReport } from './dailyReport.js';
 import { decryptField } from './fieldCrypto.js';
 import { sprawdzHIBP } from './hibp.js';
 
@@ -29,7 +30,7 @@ async function generateBackup() {
     db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
     db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email_enc, email_hmac, telefon_enc, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, haslo_slabe, haslo_slabe_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
     db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
-    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle FROM admin_powiadomienia'),
+    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle, raport_dzienny FROM admin_powiadomienia'),
   ]);
 
   const wyplaty = wyplatyRaw.rows;
@@ -144,6 +145,7 @@ function scheduleDaily() {
 
 export function startScheduler() {
   scheduleDaily();
+  scheduleDailyReport();
   scheduleHibpCheck();
 }
 
@@ -186,4 +188,17 @@ function scheduleHibpCheck() {
     runHibpCheck();
     setInterval(runHibpCheck, 24 * 60 * 60 * 1000);
   }, next - now);
+}
+
+// Raport dzienny — o 7:00
+function scheduleDailyReport() {
+  const now = new Date();
+  const next = new Date();
+  next.setHours(7, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  setTimeout(() => {
+    sendDailyReport();
+    setInterval(sendDailyReport, 24 * 60 * 60 * 1000);
+  }, next - now);
+  console.log(`Raport dzienny zaplanowany na: ${next.toLocaleString('pl-PL')} (za ${Math.round((next-now)/60000)} min)`);
 }
