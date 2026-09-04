@@ -52,6 +52,7 @@ const AKCJE_LABELS = {
   import_uzytkownicy_csv: '⬆ Import użytkowników CSV',
   hibp_wyciekle_haslo: '⚠️ Wyciekłe hasło!',
   captcha_fail: '✗ Błędna CAPTCHA',
+  honeypot: '🍯 Honeypot!',
   slabe_haslo: '⚠️ Słabe hasło',
   sesja_uniewaznienie: '⎋ Unieważnienie sesji',
   reset_hasla_wyslano: '✉ Reset hasła — wysłano',
@@ -69,6 +70,7 @@ const AKCJE_COLORS = {
   delete_wplata: 'text-rose-500',
   hibp_wyciekle_haslo: 'text-amber-600',
   captcha_fail: 'text-rose-500',
+  honeypot: 'text-red-600 font-700',
   slabe_haslo: 'text-orange-500',
   sesja_uniewaznienie: 'text-amber-600',
   reset_hasla_wyslano: 'text-blue-500',
@@ -206,6 +208,7 @@ export default function Logi() {
                 <option value="slabe_haslo">Słabe hasło</option>
                 <option value="sesja_uniewaznienie">Unieważnienie sesji</option>
                 <option value="captcha_fail">Błędna CAPTCHA</option>
+                <option value="honeypot">Honeypot</option>
               </optgroup>
               <optgroup label="Backup">
                 <option value="export_backup">Eksport backup</option>

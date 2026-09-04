@@ -30,7 +30,7 @@ async function generateBackup() {
     db.query('SELECT id, skladka_id, kwota, opis, data, created_at FROM wyplaty ORDER BY created_at'),
     db.query('SELECT id, login, haslo_hash, imie, nazwisko, rola, email_enc, email_hmac, telefon_enc, sms_powiadomienia, pomijaj_hibp, hibp_wycieklo, hibp_sprawdzono_at, hibp_dismissed_at, haslo_slabe, haslo_slabe_dismissed_at, uczen_id, mfa_secret, mfa_enabled, mfa_backup_codes, mfa_wymuszone, force_password_change, awaiting_password_reset, sessions_invalidated_at, created_at FROM uzytkownicy ORDER BY created_at'),
     db.query(`SELECT id, wyplata_id, nazwa, typ, encode(dane, 'base64') AS dane_b64, created_at FROM wyplaty_zalaczniki ORDER BY created_at`),
-    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle, raport_dzienny FROM admin_powiadomienia'),
+    db.query('SELECT uzytkownik_id, login_fail, login_blocked, mfa_fail, captcha_fail, reset_hasla, masowy_mailing, restore_backup, hibp_wyciekle, raport_dzienny, honeypot FROM admin_powiadomienia'),
   ]);
 
   const wyplaty = wyplatyRaw.rows;

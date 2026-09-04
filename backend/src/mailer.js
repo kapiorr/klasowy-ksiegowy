@@ -139,6 +139,7 @@ export async function sendAdminAlert(login, ip, blokady, typ = 'login_blocked') 
     masowy_mailing: 'Masowa wysyłka wiadomości',
     restore_backup: 'Przywrócenie backupu',
     hibp_wyciekle: 'Logowanie z wyciekłym hasłem',
+    honeypot: '🍯 Trafienie w honeypot (skanowanie)!',
   };
 
   const tytul = TYPY_LABELS[typ] || 'Alert bezpieczeństwa';

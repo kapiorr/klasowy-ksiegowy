@@ -113,7 +113,7 @@ router.post('/login', async (req, res) => {
 
     const expiry = jwtExpiry(req);
     const token = jwt.sign(
-      { id: user.id, rola: user.rola, uczen_id: user.uczen_id, mfaSetupRequired },
+      { id: user.id, login: user.login, rola: user.rola, uczen_id: user.uczen_id, mfaSetupRequired },
       process.env.JWT_SECRET,
       { expiresIn: expiry }
     );

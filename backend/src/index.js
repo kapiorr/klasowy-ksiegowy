@@ -4,9 +4,10 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { mailingLimiter } from './limiters.js';
 import cookieParser from 'cookie-parser';
+import jwt from 'jsonwebtoken';
 import db from './db.js';
 import { hashHaslo } from './crypto.js';
-import { activityMiddleware, cleanOldLogs, getIP } from './logger.js';
+import { activityMiddleware, cleanOldLogs, getIP, log } from './logger.js';
 import { requireAuth } from './middleware/auth.js';
 import { startScheduler } from './scheduler.js';
 import authRouter from './routes/auth.js';
@@ -96,6 +97,65 @@ app.get('/api/config', requireAuth, (req, res) => {
     payment_phone: process.env.PAYMENT_PHONE || null,
   });
 });
+
+
+// Honeypot — endpointy których normalny user nigdy nie powinien odpytywać
+const HONEYPOT_PATHS = [
+  '/api/admin/debug', '/api/admin/config', '/api/config/export',
+  '/api/env', '/api/.env', '/api/users', '/api/admin/users',
+  '/api/backup/download', '/api/db', '/api/database',
+  '/api/phpinfo', '/api/wp-login', '/api/admin/login',
+];
+
+const HONEYPOT_HTML = `<!DOCTYPE html>
+<html lang="pl">
+<head><meta charset="UTF-8"><title>Dostęp zabroniony</title>
+<style>
+  body { font-family: sans-serif; background: #0f1117; color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+  .box { text-align: center; padding: 40px; max-width: 500px; }
+  .icon { font-size: 64px; margin-bottom: 20px; }
+  h1 { color: #f56565; margin: 0 0 12px; font-size: 24px; }
+  p { color: #a0aec0; line-height: 1.6; }
+  .warn { background: #2d1515; border: 1px solid #f56565; border-radius: 8px; padding: 16px; margin-top: 20px; font-size: 14px; color: #fc8181; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <div class="icon">⛔</div>
+    <h1>Dostęp zabroniony</h1>
+    <p>Ta próba dostępu została zarejestrowana i zgłoszona administratorowi systemu.</p>
+    <div class="warn">
+      ⚠️ Twój adres IP oraz dane żądania zostały zapisane w logach bezpieczeństwa.
+    </div>
+  </div>
+</body>
+</html>`;
+
+for (const path of HONEYPOT_PATHS) {
+  app.all(path, async (req, res) => {
+    const ip = getIP(req);
+    // Spróbuj odczytać zalogowanego usera z cookie lub nagłówka
+    let login = null;
+    try {
+      const token = req.cookies?.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.slice(7) : null);
+      if (token) {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+        login = decoded.login || null;
+      }
+    } catch { /* brak tokenu lub wygasły */ }
+
+    await log({ ip, akcja: 'honeypot', zasob: req.path, sukces: false,
+      szczegoly: `Dostęp do honeypot: ${req.method} ${req.path}${login ? ` (zalogowany: ${login})` : ''}` }).catch(() => {});
+
+    const { sendAdminAlert } = await import('./mailer.js');
+    sendAdminAlert(login, ip, [{
+      typ: 'honeypot',
+      wartosc: `${req.method} ${req.path}`,
+    }], 'honeypot').catch(() => {});
+
+    res.status(403).setHeader('Content-Type', 'text/html; charset=utf-8').send(HONEYPOT_HTML);
+  });
+}
 
 app.get('/api/captcha/image', captchaImage);
 app.get('/api/config', (req, res) => {
@@ -208,6 +268,7 @@ async function migrate() {
     `ALTER TABLE uzytkownicy ADD COLUMN IF NOT EXISTS pomijaj_hibp BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE admin_powiadomienia ADD COLUMN IF NOT EXISTS captcha_fail BOOLEAN NOT NULL DEFAULT TRUE`,
     `ALTER TABLE admin_powiadomienia ADD COLUMN IF NOT EXISTS raport_dzienny BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE admin_powiadomienia ADD COLUMN IF NOT EXISTS honeypot BOOLEAN NOT NULL DEFAULT TRUE`,
     `CREATE TABLE IF NOT EXISTS hibp_logi (
        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
        wycieklo BOOLEAN NOT NULL,

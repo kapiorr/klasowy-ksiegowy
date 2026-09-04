@@ -59,7 +59,7 @@ export async function sendDailyReport() {
         SELECT akcja, COUNT(*) AS liczba, array_agg(DISTINCT ip) AS ips, array_agg(DISTINCT login_proba) AS loginy
         FROM logi
         WHERE created_at >= $1 AND created_at < $2
-          AND akcja IN ('login_fail','login_blocked','mfa_fail','captcha_fail','hibp_wyciekle_haslo','slabe_haslo')
+          AND akcja IN ('login_fail','login_blocked','mfa_fail','captcha_fail','hibp_wyciekle_haslo','slabe_haslo','honeypot')
         GROUP BY akcja ORDER BY liczba DESC
       `, [wczoraj, dzisiaj]),
 

@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS admin_powiadomienia (
   restore_backup BOOLEAN NOT NULL DEFAULT TRUE,
   hibp_wyciekle BOOLEAN NOT NULL DEFAULT TRUE,
   raport_dzienny BOOLEAN NOT NULL DEFAULT FALSE,
+  honeypot BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

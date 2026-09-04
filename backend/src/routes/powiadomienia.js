@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { decryptField } from '../fieldCrypto.js';
 import { sendDailyReport } from '../dailyReport.js';
 
 const router = Router();
@@ -15,6 +16,7 @@ const DOMYSLNE = {
   restore_backup: true,
   hibp_wyciekle: true,
   raport_dzienny: false,
+  honeypot: true,
 };
 
 // GET /powiadomienia/admin — pobierz preferencje zalogowanego admina
@@ -24,10 +26,7 @@ router.get('/admin', requireAdmin, async (req, res) => {
       'SELECT * FROM admin_powiadomienia WHERE uzytkownik_id=$1',
       [req.user.id]
     );
-    if (!result.rows[0]) {
-      // Brak wpisu — zwróć domyślne
-      return res.json(DOMYSLNE);
-    }
+    if (!result.rows[0]) return res.json(DOMYSLNE);
     const { id, uzytkownik_id, updated_at, ...prefs } = result.rows[0];
     res.json(prefs);
   } catch (err) {
@@ -57,23 +56,33 @@ router.put('/admin', requireAdmin, async (req, res) => {
   }
 });
 
+// POST /powiadomienia/raport-dzienny/wyslij — wyślij raport ręcznie
+router.post('/raport-dzienny/wyslij', requireAdmin, async (req, res) => {
+  try {
+    await sendDailyReport();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
 
-// Eksportowana funkcja do sprawdzenia czy admin chce dane powiadomienie
+// ── Pomocnicze funkcje eksportowane ──────────────────────────────────────────
+
 export async function czyPowiadamiac(uzytkownikId, typ) {
   try {
     const result = await db.query(
       `SELECT ${typ} FROM admin_powiadomienia WHERE uzytkownik_id=$1`,
       [uzytkownikId]
     );
-    if (!result.rows[0]) return true; // brak wpisu = domyślnie tak
+    if (!result.rows[0]) return true;
     return result.rows[0][typ] === true;
   } catch {
-    return true; // błąd = domyślnie tak
+    return true;
   }
 }
 
-// Pobierz wszystkich adminów z preferencjami dla danego typu
 export async function adminowieDoPowiadomienia(typ) {
   try {
     const result = await db.query(
@@ -89,13 +98,3 @@ export async function adminowieDoPowiadomienia(typ) {
     return [];
   }
 }
-
-// POST /powiadomienia/raport-dzienny/wyslij — wyślij raport ręcznie
-router.post('/raport-dzienny/wyslij', requireAdmin, async (req, res) => {
-  try {
-    await sendDailyReport();
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});

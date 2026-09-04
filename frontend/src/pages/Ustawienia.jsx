@@ -420,6 +420,7 @@ function PowiadomieniaSekcja() {
     { key: 'restore_backup', label: 'Przywrócenie backupu' },
     { key: 'hibp_wyciekle', label: 'Logowanie z wyciekłym hasłem' },
     { key: 'raport_dzienny', label: 'Dzienny raport bezpieczeństwa i aktywności (wysyłany o 7:00)' },
+    { key: 'honeypot', label: '🍯 Alert przy trafieniu w honeypot (skanowanie endpointów)' },
   ];
 
   useEffect(() => {
