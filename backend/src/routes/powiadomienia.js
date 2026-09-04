@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { sendDailyReport } from '../dailyReport.js';
 
 const router = Router();
 
@@ -88,3 +89,13 @@ export async function adminowieDoPowiadomienia(typ) {
     return [];
   }
 }
+
+// POST /powiadomienia/raport-dzienny/wyslij — wyślij raport ręcznie
+router.post('/raport-dzienny/wyslij', requireAdmin, async (req, res) => {
+  try {
+    await sendDailyReport();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});

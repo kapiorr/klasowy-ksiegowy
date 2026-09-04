@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, getMailingConfig, getMe, updateMeSms, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest, getPowiadomieniaAdmin, savePowiadomieniaAdmin } from '../api.js';
+import { api, getMailingConfig, getMe, updateMeSms, getPushVapidKey, getPushStatus, pushSubscribe, pushUnsubscribe, pushTest, getPowiadomieniaAdmin, savePowiadomieniaAdmin, wyslijRaportDzienny } from '../api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 // ── Sekcja: zmiana hasła ──────────────────────────────────────────────────────
@@ -461,6 +461,15 @@ function PowiadomieniaSekcja() {
           </label>
         ))}
       </div>
+      <button onClick={async () => {
+        setSaving(true); setMsg('');
+        try { await wyslijRaportDzienny(); setMsg('✓ Raport wysłany na Twój email'); }
+        catch (e) { setMsg('Błąd: ' + e.message); }
+        finally { setSaving(false); }
+      }} disabled={saving}
+        className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2 rounded-xl hover:bg-sage-50 disabled:opacity-50">
+        📧 Wyślij raport teraz
+      </button>
       <button onClick={save} disabled={saving}
         className="bg-ink dark:bg-gray-900 text-white font-display font-600 px-5 py-2.5 rounded-xl hover:bg-sage-700 disabled:opacity-50 text-sm">
         {saving ? '⏳ Zapisywanie...' : 'Zapisz'}

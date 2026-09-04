@@ -124,6 +124,7 @@ export const wylogujUzytkownika = (id) => request(`/uzytkownicy/${id}/wyloguj`, 
 export const wylogujWszystkich = () => request('/uzytkownicy/wyloguj-wszystkich', { method: 'POST' });
 export const getPowiadomieniaAdmin = () => request('/powiadomienia/admin');
 export const savePowiadomieniaAdmin = (prefs) => request('/powiadomienia/admin', { method: 'PUT', body: JSON.stringify(prefs) });
+export const wyslijRaportDzienny = () => request('/powiadomienia/raport-dzienny/wyslij', { method: 'POST' });
 export const logout = () => request('/auth/logout', { method: 'POST' });
 export const updateMeSms = (sms_powiadomienia) => request('/uzytkownicy/me/sms', { method: 'PATCH', body: JSON.stringify({ sms_powiadomienia }) });
 export const getMailingZaleglosci = () => request('/mailing/zaleglosci/podglad');

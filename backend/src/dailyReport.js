@@ -75,7 +75,7 @@ export async function sendDailyReport() {
 
       // Operacje wrażliwe
       db.query(`
-        SELECT akcja, COUNT(*) AS liczba, array_agg(DISTINCT login) AS wykonali
+        SELECT akcja, COUNT(*) AS liczba, array_agg(DISTINCT login_proba) AS wykonali
         FROM logi
         WHERE created_at >= $1 AND created_at < $2
           AND akcja IN ('export_backup','import_backup','delete_uzytkownik','edit_uzytkownik',
@@ -85,7 +85,7 @@ export async function sendDailyReport() {
 
       // Logowania poza godzinami 6-22
       db.query(`
-        SELECT login, ip, created_at
+        SELECT login_proba AS login, ip, created_at
         FROM logi
         WHERE created_at >= $1 AND created_at < $2
           AND akcja = 'login_ok'
