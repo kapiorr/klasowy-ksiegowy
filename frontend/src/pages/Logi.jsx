@@ -1,6 +1,6 @@
 import DateInput from '../components/DateInput.jsx';
 import { useEffect, useState, useRef } from 'react';
-import { api } from '../api.js';
+import { api, blokujIP, blokadaPermanentna } from '../api.js';
 
 const AKCJE_LABELS = {
   login_ok: '✓ Logowanie',
@@ -55,6 +55,8 @@ const AKCJE_LABELS = {
   honeypot: '🍯 Honeypot!',
   slabe_haslo: '⚠️ Słabe hasło',
   sesja_uniewaznienie: '⎋ Unieważnienie sesji',
+  blokada_ip: '🚫 Ręczna blokada IP',
+  odblokowanie: '✓ Odblokowanie',
   reset_hasla_wyslano: '✉ Reset hasła — wysłano',
 };
 
@@ -73,14 +75,17 @@ const AKCJE_COLORS = {
   honeypot: 'text-red-600 font-700',
   slabe_haslo: 'text-orange-500',
   sesja_uniewaznienie: 'text-amber-600',
+  blokada_ip: 'text-rose-600',
+  odblokowanie: 'text-green-600',
   reset_hasla_wyslano: 'text-blue-500',
 };
 
-function BlokadyPanel({ onOdblokuj }) {
+function BlokadyPanel({ onOdblokuj, onZablokuj }) {
   const [blokady, setBlokady] = useState([]);
 
   const load = () => api.getBlokady().then(setBlokady);
   useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [onZablokuj]);
 
   if (blokady.length === 0) return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-5">
@@ -94,27 +99,40 @@ function BlokadyPanel({ onOdblokuj }) {
       <h2 className="font-display font-700 text-ink mb-3">Aktywne blokady ({blokady.length})</h2>
       <div className="space-y-2">
         {blokady.map(b => (
-          <div key={b.id} className="flex items-center justify-between bg-rose-50 rounded-xl px-4 py-2.5">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+          <div key={b.id} className="flex items-center justify-between bg-rose-50 dark:bg-rose-900/20 rounded-xl px-4 py-2.5 gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300">
                   {b.typ === 'login' ? 'Login' : 'IP'}
                 </span>
                 <span className="font-mono text-sm text-ink dark:text-gray-100">{b.wartosc}</span>
+                {!b.zablokowany_do && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 font-600">
+                    permanentna
+                  </span>
+                )}
               </div>
               <div className="font-body text-xs text-sage-500 mt-0.5">
-                {b.powod} · do {b.zablokowany_do ? new Date(b.zablokowany_do).toLocaleString('pl-PL') : 'odwołania'}
+                {b.powod} · {b.zablokowany_do ? `do ${new Date(b.zablokowany_do).toLocaleString('pl-PL')}` : 'bezterminowo'}
               </div>
             </div>
-            <button
-              onClick={async () => {
+            <div className="flex gap-2 flex-shrink-0">
+              {b.zablokowany_do && (
+                <button onClick={async () => {
+                  await blokadaPermanentna(b.id);
+                  load();
+                }} className="text-xs font-body border border-rose-300 text-rose-600 px-2.5 py-1 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/30">
+                  Permanentna
+                </button>
+              )}
+              <button onClick={async () => {
                 await api.deleteBlokada(b.id);
                 load();
                 onOdblokuj();
-              }}
-              className="text-xs font-body text-rose-400 hover:text-rose-600 underline">
-              Odblokuj
-            </button>
+              }} className="text-xs font-body border border-sage-200 text-sage-600 px-2.5 py-1 rounded-lg hover:bg-sage-50 dark:hover:bg-gray-700">
+                Odblokuj
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -173,7 +191,7 @@ export default function Logi() {
         <p className="font-body text-sage-600 mt-1">Historia zdarzeń — ostatnie 30 dni</p>
       </div>
 
-      <BlokadyPanel key={blokadyKey} onOdblokuj={() => setBlokadyKey(k => k + 1)} />
+      <BlokadyPanel key={blokadyKey} onOdblokuj={() => setBlokadyKey(k => k + 1)} onZablokuj={blokadyKey} />
 
       {/* Filtry */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-sage-100 dark:border-gray-700 p-5 mt-4 mb-4">
@@ -207,6 +225,8 @@ export default function Logi() {
                 <option value="hibp_wyciekle_haslo">Wyciekłe hasło</option>
                 <option value="slabe_haslo">Słabe hasło</option>
                 <option value="sesja_uniewaznienie">Unieważnienie sesji</option>
+                <option value="blokada_ip">Ręczna blokada IP</option>
+                <option value="odblokowanie">Odblokowanie</option>
                 <option value="captcha_fail">Błędna CAPTCHA</option>
                 <option value="honeypot">Honeypot</option>
               </optgroup>
@@ -308,7 +328,19 @@ export default function Logi() {
                         <span className="text-xs text-sage-400 ml-1">({l.login_proba})</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-sage-500 dark:text-gray-400">{l.ip || '—'}</td>
+                    <td className="px-4 py-2.5">
+                      {l.ip ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs text-sage-500 dark:text-gray-400">{l.ip}</span>
+                          <button onClick={async () => {
+                            await blokujIP(l.ip, 24);
+                            setBlokadyKey(k => k + 1);
+                          }} title="Zablokuj IP na 24h" className="text-rose-400 hover:text-rose-600 text-xs px-1.5 py-0.5 border border-rose-200 rounded hover:bg-rose-50 flex-shrink-0">
+                            🚫
+                          </button>
+                        </div>
+                      ) : <span className="font-mono text-xs text-sage-500">—</span>}
+                    </td>
                     <td className={`px-4 py-2.5 font-body text-sm ${AKCJE_COLORS[l.akcja] || 'text-ink dark:text-gray-100'}`}>
                       {AKCJE_LABELS[l.akcja] || l.akcja}
                     </td>
@@ -347,7 +379,17 @@ export default function Logi() {
                 {l.szczegoly && (
                   <div className="font-body text-xs text-sage-600 dark:text-gray-300 break-words">{l.szczegoly}</div>
                 )}
-                <div className="font-mono text-xs text-sage-400 dark:text-gray-500">{l.ip || '—'}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs text-sage-400 dark:text-gray-500">{l.ip || '—'}</span>
+                  {l.ip && (
+                    <button onClick={async () => {
+                      await blokujIP(l.ip, 24);
+                      setBlokadyKey(k => k + 1);
+                    }} title="Zablokuj IP na 24h" className="text-rose-400 hover:text-rose-600 text-xs px-1 py-0.5 border border-rose-200 rounded hover:bg-rose-50">
+                      🚫
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

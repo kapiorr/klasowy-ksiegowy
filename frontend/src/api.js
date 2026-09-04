@@ -120,6 +120,8 @@ export const mailingSkladka = (id, kanaly, email_ids, sms_ids) => request(`/mail
 export const mailingPodglad = (id) => request(`/mailing/skladka/${id}/podglad`);
 export const getMailingConfig = () => request('/mailing/config');
 export const getMe = () => request('/uzytkownicy/me');
+export const blokujIP = (ip, godziny) => request('/logi/blokady/ip', { method: 'POST', body: JSON.stringify({ ip, godziny }) });
+export const blokadaPermanentna = (id) => request(`/logi/blokady/${id}/permanentna`, { method: 'PATCH' });
 export const wylogujUzytkownika = (id) => request(`/uzytkownicy/${id}/wyloguj`, { method: 'POST' });
 export const wylogujWszystkich = () => request('/uzytkownicy/wyloguj-wszystkich', { method: 'POST' });
 export const getPowiadomieniaAdmin = () => request('/powiadomienia/admin');

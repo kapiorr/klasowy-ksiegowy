@@ -53,6 +53,7 @@ Aplikacja webowa do zarządzania kasą klasową — wpłatami, wypłatami i skł
 - Rola `podglad` nie widzi ogólnego salda klasy
 
 ### Mailing
+- **Ręczna blokada IP** — przycisk 🚫 przy każdym IP w logach; blokada na 24h lub permanentna; widoczna w zakładce Blokady z możliwością odblokowania lub zmiany na permanentną
 - **Honeypot** — 13 fałszywych endpointów (`/api/admin/debug`, `/api/wp-login`, `/api/.env` itp.); każde trafienie logowane jako `🍯 Honeypot!` i opcjonalnie wysyła alert do admina; konfigurowane w Ustawieniach
 - **Dzienny raport bezpieczeństwa** — wysyłany o 7:00 do adminów którzy mają włączoną opcję; zawiera: zdarzenia bezpieczeństwa, podejrzane IP (≥3 różne loginy), logowania nocne (22:00–06:00), operacje wrażliwe, podsumowanie transakcji; konfigurowane w Ustawieniach → Powiadomienia email
 - **Alerty email dla admina** — konfigurowalne w Ustawieniach; obsługiwane zdarzenia: blokady IP, nieudane logowania, błędy MFA, reset hasła, masowy mailing, restore backupu, wyciekłe hasła

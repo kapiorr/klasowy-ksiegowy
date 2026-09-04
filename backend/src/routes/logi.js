@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
+import { log } from '../logger.js';
 
 const router = Router();
 
@@ -73,10 +74,48 @@ router.get('/blokady', requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /logi/blokady/:id — usuń blokadę
+// POST /logi/blokady/ip — ręczna blokada IP przez admina
+router.post('/blokady/ip', requireAdmin, async (req, res) => {
+  const { ip, godziny = 24 } = req.body;
+  if (!ip) return res.status(400).json({ error: 'Brak adresu IP' });
+  try {
+    await db.query(
+      `INSERT INTO blokady (typ, wartosc, powod, zablokowany_do)
+       VALUES ('ip', $1, 'Ręczna blokada przez admina', NOW() + ($2 || ' hours')::INTERVAL)
+       ON CONFLICT (typ, wartosc) DO UPDATE SET
+         powod = EXCLUDED.powod,
+         zablokowany_do = EXCLUDED.zablokowany_do`,
+      [ip, godziny]
+    );
+    await log({ uzytkownik_id: req.user.id, login_proba: req.user.login, ip: req.ip, akcja: 'blokada_ip',
+      szczegoly: `Ręczna blokada IP: ${ip} na ${godziny}h`, sukces: true });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /logi/blokady/:id/permanentna — ustaw blokadę permanentną
+router.patch('/blokady/:id/permanentna', requireAdmin, async (req, res) => {
+  try {
+    await db.query(
+      "UPDATE blokady SET zablokowany_do = NULL, powod = 'Permanentna blokada przez admina' WHERE id=$1",
+      [req.params.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/blokady/:id', requireAdmin, async (req, res) => {
   try {
-    await db.query('DELETE FROM blokady WHERE id=$1', [req.params.id]);
+    const result = await db.query('DELETE FROM blokady WHERE id=$1 RETURNING typ, wartosc', [req.params.id]);
+    if (result.rows[0]) {
+      const { typ, wartosc } = result.rows[0];
+      await log({ uzytkownik_id: req.user.id, login_proba: req.user.login, ip: req.ip,
+        akcja: 'odblokowanie', szczegoly: `Odblokowanie ${typ}: ${wartosc}`, sukces: true });
+    }
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: 'Błąd serwera' });
