@@ -41,58 +41,49 @@ export async function sendDailyReport() {
       .filter(r => r.email);
     if (!admini.length) return;
 
-    const wczoraj = new Date();
-    wczoraj.setDate(wczoraj.getDate() - 1);
-    wczoraj.setHours(0, 0, 0, 0);
     const dzisiaj = new Date();
-    dzisiaj.setHours(0, 0, 0, 0);
+    const wczoraj = new Date(dzisiaj.getTime() - 24 * 60 * 60 * 1000);
 
-    const [
-      bezpieczenstwo,
-      podejrzane,
-      wrazliwe,
-      aktywnosc,
-      transakcje,
-    ] = await Promise.all([
+    const results = await Promise.allSettled([
       // Bezpieczeństwo
       db.query(`
         SELECT akcja, COUNT(*) AS liczba, array_agg(DISTINCT ip) AS ips, array_agg(DISTINCT login_proba) AS loginy
         FROM logi
-        WHERE created_at >= $1 AND created_at < $2
+        WHERE created_at >= $1
           AND akcja IN ('login_fail','login_blocked','mfa_fail','captcha_fail','hibp_wyciekle_haslo','slabe_haslo','honeypot')
         GROUP BY akcja ORDER BY liczba DESC
-      `, [wczoraj, dzisiaj]),
+      `, [wczoraj]),
 
       // Podejrzane — jeden IP, wiele różnych loginów
       db.query(`
         SELECT ip, COUNT(DISTINCT login_proba) AS rozne_loginy, COUNT(*) AS prob
         FROM logi
-        WHERE created_at >= $1 AND created_at < $2
+        WHERE created_at >= $1
           AND akcja = 'login_fail' AND ip IS NOT NULL AND login_proba IS NOT NULL
         GROUP BY ip HAVING COUNT(DISTINCT login_proba) >= 3
         ORDER BY rozne_loginy DESC LIMIT 10
-      `, [wczoraj, dzisiaj]),
+      `, [wczoraj]),
 
       // Operacje wrażliwe
       db.query(`
         SELECT akcja, COUNT(*) AS liczba, array_agg(DISTINCT login_proba) AS wykonali
         FROM logi
-        WHERE created_at >= $1 AND created_at < $2
+        WHERE created_at >= $1
           AND akcja IN ('export_backup','import_backup','delete_uzytkownik','edit_uzytkownik',
                         'sesja_uniewaznienie','mailing_skladka','mailing_zaleglosci')
         GROUP BY akcja ORDER BY akcja
-      `, [wczoraj, dzisiaj]),
+      `, [wczoraj]),
 
       // Logowania poza godzinami 6-22
       db.query(`
         SELECT login_proba AS login, ip, created_at
         FROM logi
-        WHERE created_at >= $1 AND created_at < $2
+        WHERE created_at >= $1
           AND akcja = 'login_ok'
           AND (EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Warsaw') < 6
             OR EXTRACT(HOUR FROM created_at AT TIME ZONE 'Europe/Warsaw') >= 22)
         ORDER BY created_at
-      `, [wczoraj, dzisiaj]),
+      `, [wczoraj]),
 
       // Transakcje
       db.query(`
@@ -104,6 +95,9 @@ export async function sendDailyReport() {
           (SELECT COALESCE(SUM(kwota),0) FROM wplaty WHERE created_at >= $1) AS suma_wplat
       `, [wczoraj]),
     ]);
+
+    const get = r => r.status === 'fulfilled' ? r.value.rows : [];
+    const [bezpieczenstwo, podejrzane, wrazliwe, aktywnosc, transakcje] = results.map(r => ({ rows: get(r) }));
 
     // Buduj HTML raportu
     const akcjaLabel = {
@@ -178,7 +172,7 @@ export async function sendDailyReport() {
       html = '<p style="color:#888">Brak zdarzeń do zgłoszenia. Spokojny dzień 🎉</p>';
     }
 
-    const dataStr = wczoraj.toLocaleDateString('pl-PL');
+    const dataStr = `ostatnie 24h (od ${wczoraj.toLocaleString('pl-PL', {timeZone:'Europe/Warsaw', hour:'2-digit', minute:'2-digit'})})`;
     const body = `<p>Raport aktywności za <strong>${dataStr}</strong>.</p>${html}
       <p style="color:#999;font-size:12px;margin-top:20px;">Możesz wyłączyć ten raport w Ustawieniach → Powiadomienia email.</p>`;
 
@@ -186,8 +180,8 @@ export async function sendDailyReport() {
       await getTransport().sendMail({
         from: process.env.EMAIL_FROM,
         to: admin.email,
-        subject: `Raport dzienny ${dataStr} — ${appInfo()}`,
-        html: layout(`Raport dzienny ${dataStr}`, body, '#2c3e50'),
+        subject: `Raport dzienny — ${appInfo()}`,
+        html: layout('Raport dzienny — ostatnie 24h', body, '#2c3e50'),
       });
     }
 
