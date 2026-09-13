@@ -86,6 +86,7 @@ export default function Skladki() {
   const { user } = useAuth();
   const [skladki, setSkladki] = useState([]);
   const [generujePdf, setGenerujePdf] = useState(false);
+  const [pdfModal, setPdfModal] = useState(false);
   const [dragId, setDragId] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -135,6 +136,39 @@ export default function Skladki() {
     load();
   };
 
+  if (pdfModal) return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 w-full max-w-sm">
+        <h3 className="font-display font-700 text-ink dark:text-gray-100 text-lg mb-4">📄 Raport PDF</h3>
+        <p className="font-body text-sm text-sage-600 dark:text-gray-400 mb-6">
+          Czy uwzględnić w raporcie składki nieaktywne (archiwalne i wstrzymane)?
+        </p>
+        <div className="flex flex-col gap-2">
+          <button onClick={async () => {
+            setPdfModal(false); setGenerujePdf(true);
+            try { await downloadRaportPdf(false); }
+            catch (e) { await alert('Błąd: ' + e.message, 'error'); }
+            finally { setGenerujePdf(false); }
+          }} className="w-full bg-ink dark:bg-sage-700 text-white font-display font-600 px-4 py-2.5 rounded-xl hover:bg-sage-700">
+            Tylko aktywne
+          </button>
+          <button onClick={async () => {
+            setPdfModal(false); setGenerujePdf(true);
+            try { await downloadRaportPdf(true); }
+            catch (e) { await alert('Błąd: ' + e.message, 'error'); }
+            finally { setGenerujePdf(false); }
+          }} className="w-full border border-sage-200 text-sage-600 font-display font-600 px-4 py-2.5 rounded-xl hover:bg-sage-50">
+            Aktywne i nieaktywne
+          </button>
+          <button onClick={() => setPdfModal(false)}
+            className="w-full text-sage-400 font-body text-sm py-2 hover:text-sage-600">
+            Anuluj
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-2xl">
       {(modal || editing) && (
@@ -152,12 +186,7 @@ export default function Skladki() {
         </div>
         {isKsiegowy && (
           <div className="flex gap-2">
-            <button onClick={async () => {
-                setGenerujePdf(true);
-                try { await downloadRaportPdf(); }
-                catch (e) { await alert('Błąd: ' + e.message, 'error'); }
-                finally { setGenerujePdf(false); }
-              }} disabled={generujePdf}
+            <button onClick={() => setPdfModal(true)} disabled={generujePdf}
               className="border border-sage-200 text-sage-600 font-body text-sm px-4 py-2.5 rounded-xl hover:bg-sage-50 disabled:opacity-50">
               {generujePdf ? '⏳ Generuję...' : '📄 Raport PDF'}
             </button>

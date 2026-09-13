@@ -16,6 +16,9 @@ const DATE = (d) => d ? new Date(d).toLocaleDateString('pl-PL') : '';
 
 router.get('/pdf', requireKsiegowy, async (req, res) => {
   try {
+    const uwzglednijNieaktywne = req.query.nieaktywne === '1';
+    const statusFilter = uwzglednijNieaktywne ? '' : "WHERE s.status = 'aktywna'";
+
     const [skladkiRes, uczniowieWplatyRes, wyplatyRes] = await Promise.all([
       db.query(`
         SELECT s.*,
@@ -28,6 +31,7 @@ router.get('/pdf', requireKsiegowy, async (req, res) => {
         LEFT JOIN (SELECT skladka_id, COUNT(*) AS liczba_uczniow FROM skladka_ucznowie GROUP BY skladka_id) su ON su.skladka_id = s.id
         LEFT JOIN (SELECT skladka_id, SUM(kwota) AS zebrano FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
         LEFT JOIN (SELECT skladka_id, SUM(kwota) AS wyplacono FROM wyplaty GROUP BY skladka_id) wy ON wy.skladka_id = s.id
+        ${statusFilter}
         ORDER BY s.kolejnosc ASC, s.created_at DESC
       `),
       // Uczniowie przypisani do składek z ich wpłatami

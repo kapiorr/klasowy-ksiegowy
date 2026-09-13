@@ -146,9 +146,10 @@ export const downloadRaportSkladkiPdf = async (id, nazwa) => {
   URL.revokeObjectURL(url);
 };
 
-export const downloadRaportPdf = async () => {
+export const downloadRaportPdf = async (uwzglednijNieaktywne = false) => {
   const token = localStorage.getItem('token');
-  const res = await fetch('/api/raport/pdf', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
+  const params = uwzglednijNieaktywne ? '?nieaktywne=1' : '';
+  const res = await fetch(`/api/raport/pdf${params}`, { credentials: 'include', headers: { Authorization: `Bearer ${token}` } });
   if (res.status === 401) { handleUnauthorized(); return; }
   if (!res.ok) throw new Error('Błąd generowania raportu');
   const blob = await res.blob();
