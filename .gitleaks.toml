@@ -6,3 +6,16 @@ description = "Ignore placeholder values in example env files"
 paths = [
     '''\.env\.example$'''
 ]
+stopWords = [
+    "zmien_na",
+    "your_",
+    "change_me",
+    "placeholder",
+    "example",
+]
+
+[allowlist]
+description = "Known false positives — placeholder values in .env.example"
+commits = [
+    "e1fdce53da8b4da1800004c54c08176dbad820e4"
+]
