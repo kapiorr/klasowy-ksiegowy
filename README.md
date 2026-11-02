@@ -337,4 +337,4 @@ Przycisk Udostępnij → *Dodaj do ekranu głównego*
 
 ## 📄 Licencja
 
-MIT
+GNU Affero General Public License v3.0 (AGPL-3.0) — zob. plik [LICENSE](LICENSE).
