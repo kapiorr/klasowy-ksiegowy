@@ -46,7 +46,7 @@ router.get('/historia', requireKsiegowy, async (req, res) => {
 // POST /wplaty
 router.post('/', requireKsiegowy, validateBody({
   skladka_id: { type: 'string', required: true },
-  uczen_id: { type: 'string', required: true },
+  uczen_id: { type: 'string' }, // opcjonalne — brak = wpłata ogólna
   kwota: { type: 'number', required: true, min: 0.01, max: 99999 },
   notatka: { type: 'string', max: 500 },
 }), async (req, res) => {
