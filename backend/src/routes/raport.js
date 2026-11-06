@@ -25,11 +25,12 @@ router.get('/pdf', requireKsiegowy, async (req, res) => {
           COALESCE(su.liczba_uczniow, 0) AS liczba_uczniow,
           COALESCE(su.liczba_uczniow, 0) * s.kwota_na_osobe AS cel_lacznie,
           COALESCE(w.zebrano, 0) AS zebrano_lacznie,
+          COALESCE(w.ogolne, 0) AS wplaty_ogolne_lacznie,
           COALESCE(wy.wyplacono, 0) AS wyplacono_lacznie,
-          COALESCE(w.zebrano, 0) - COALESCE(wy.wyplacono, 0) AS saldo
+          COALESCE(w.zebrano, 0) + COALESCE(w.ogolne, 0) - COALESCE(wy.wyplacono, 0) AS saldo
         FROM skladki s
         LEFT JOIN (SELECT skladka_id, COUNT(*) AS liczba_uczniow FROM skladka_ucznowie GROUP BY skladka_id) su ON su.skladka_id = s.id
-        LEFT JOIN (SELECT skladka_id, SUM(kwota) AS zebrano FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
+        LEFT JOIN (SELECT skladka_id, SUM(kwota) FILTER (WHERE uczen_id IS NOT NULL) AS zebrano, SUM(kwota) FILTER (WHERE uczen_id IS NULL) AS ogolne FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
         LEFT JOIN (SELECT skladka_id, SUM(kwota) AS wyplacono FROM wyplaty GROUP BY skladka_id) wy ON wy.skladka_id = s.id
         ${statusFilter}
         ORDER BY s.kolejnosc ASC, s.created_at DESC
@@ -121,7 +122,8 @@ router.get('/pdf', requireKsiegowy, async (req, res) => {
     const totalCel = skladki.reduce((s, r) => s + parseFloat(r.cel_lacznie || 0), 0);
     const totalZebrano = skladki.reduce((s, r) => s + parseFloat(r.zebrano_lacznie || 0), 0);
     const totalWyplacono = skladki.reduce((s, r) => s + parseFloat(r.wyplacono_lacznie || 0), 0);
-    const totalSaldo = totalZebrano - totalWyplacono;
+    const totalOgolne = skladki.reduce((s, r) => s + parseFloat(r.wplaty_ogolne_lacznie || 0), 0);
+    const totalSaldo = totalZebrano + totalOgolne - totalWyplacono;
     const aktywne = skladki.filter(s => s.status === 'aktywna').length;
     const archiwalne = skladki.filter(s => s.status === 'zakonczona').length;
 
@@ -129,12 +131,13 @@ router.get('/pdf', requireKsiegowy, async (req, res) => {
       ['Liczba skladek:', `${skladki.length}  (aktywnych: ${aktywne}, archiwalnych: ${archiwalne})`],
       ['Cel laczny:', PLN(totalCel)],
       ['Zebrano lacznie:', PLN(totalZebrano)],
+      ['Wplaty ogolne:', PLN(totalOgolne)],
       ['Wyplacono lacznie:', PLN(totalWyplacono)],
       ['Saldo:', PLN(totalSaldo)],
     ];
 
     summaryRows.forEach(([label, val], i) => {
-      const isSaldo = i === 4;
+      const isSaldo = i === 5;
       doc.rect(40, y, W, 18).fill(i % 2 === 0 ? LIGHT : '#ffffff').fillColor(DARK);
       doc.fontSize(isSaldo ? 11 : 10)
         .font('Bold').fillColor(DARK).text(label, 46, y + 4, { width: 140 });
@@ -165,7 +168,8 @@ router.get('/pdf', requireKsiegowy, async (req, res) => {
       const isArchiwalna = s.status === 'zakonczona';
       const zebrano = parseFloat(s.zebrano_lacznie || 0);
       const wyplaconoS = parseFloat(s.wyplacono_lacznie || 0);
-      const saldoS = zebrano - wyplaconoS;
+      const ogolneS = parseFloat(s.wplaty_ogolne_lacznie || 0);
+      const saldoS = zebrano + ogolneS - wyplaconoS;
       const cel = parseFloat(s.cel_lacznie || 0);
 
       if (y > 700) { doc.addPage(); y = 40; }
@@ -186,12 +190,13 @@ router.get('/pdf', requireKsiegowy, async (req, res) => {
         `Uczniow: ${s.liczba_uczniow}`,
         `Cel: ${PLN(cel)}`,
         `Zebrano: ${PLN(zebrano)}`,
+        `Ogolne: ${PLN(ogolneS)}`,
         `Wyplacono: ${PLN(wyplaconoS)}`,
         `Saldo: ${PLN(saldoS)}`,
       ];
       const colW = W / infoItems.length;
       infoItems.forEach((item, i) => {
-        const isSaldoItem = i === 5;
+        const isSaldoItem = i === 6;
         doc.fontSize(8).font('Regular')
           .fillColor(isSaldoItem ? (saldoS >= 0 ? GREEN : RED) : GRAY)
           .text(item, 40 + i * colW, y + 4, { width: colW, align: 'center' });
@@ -301,11 +306,12 @@ router.get('/skladka/:id', requireKsiegowy, async (req, res) => {
           COALESCE(su.liczba_uczniow, 0) AS liczba_uczniow,
           COALESCE(su.liczba_uczniow, 0) * s.kwota_na_osobe AS cel_lacznie,
           COALESCE(w.zebrano, 0) AS zebrano_lacznie,
+          COALESCE(w.ogolne, 0) AS wplaty_ogolne_lacznie,
           COALESCE(wy.wyplacono, 0) AS wyplacono_lacznie,
-          COALESCE(w.zebrano, 0) - COALESCE(wy.wyplacono, 0) AS saldo
+          COALESCE(w.zebrano, 0) + COALESCE(w.ogolne, 0) - COALESCE(wy.wyplacono, 0) AS saldo
         FROM skladki s
         LEFT JOIN (SELECT skladka_id, COUNT(*) AS liczba_uczniow FROM skladka_ucznowie GROUP BY skladka_id) su ON su.skladka_id = s.id
-        LEFT JOIN (SELECT skladka_id, SUM(kwota) AS zebrano FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
+        LEFT JOIN (SELECT skladka_id, SUM(kwota) FILTER (WHERE uczen_id IS NOT NULL) AS zebrano, SUM(kwota) FILTER (WHERE uczen_id IS NULL) AS ogolne FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
         LEFT JOIN (SELECT skladka_id, SUM(kwota) AS wyplacono FROM wyplaty GROUP BY skladka_id) wy ON wy.skladka_id = s.id
         WHERE s.id = $1
       `, [id]),
@@ -370,19 +376,21 @@ router.get('/skladka/:id', requireKsiegowy, async (req, res) => {
     const zebrano = parseFloat(s.zebrano_lacznie || 0);
     const wyplacono = parseFloat(s.wyplacono_lacznie || 0);
     const cel = parseFloat(s.cel_lacznie || 0);
+    const ogolneSuma = parseFloat(s.wplaty_ogolne_lacznie || 0);
     const saldo = parseFloat(s.saldo || 0);
     const pct = cel > 0 ? Math.min(zebrano / cel * 100, 100) : 0;
 
     const summaryRows = [
       ['Kwota na osobe:', PLN(s.kwota_na_osobe), 'Liczba uczniow:', s.liczba_uczniow.toString()],
       ['Cel laczny:', PLN(cel), 'Zebrano:', PLN(zebrano)],
-      ['Wyplacono:', PLN(wyplacono), 'Saldo:', PLN(saldo)],
+      ['Wplaty ogolne:', PLN(ogolneSuma), 'Wyplacono:', PLN(wyplacono)],
+      ['', '', 'Saldo:', PLN(saldo)],
     ];
     summaryRows.forEach(([l1, v1, l2, v2], i) => {
-      const isSaldo = i === 2;
+      const isSaldo = i === 3;
       doc.rect(40, y, W, 18).fill(i % 2 === 0 ? LIGHT : '#fff');
       doc.fontSize(9).font('Bold').fillColor(DARK).text(l1, 46, y + 4, { width: 90 });
-      doc.font('Regular').fillColor(isSaldo && i === 2 ? (saldo >= 0 ? GREEN : RED) : DARK)
+      doc.font('Regular').fillColor(DARK)
         .text(v1, 140, y + 4, { width: 100 });
       doc.font('Bold').fillColor(DARK).text(l2, 250, y + 4, { width: 100 });
       doc.font(isSaldo ? 'Bold' : 'Regular')

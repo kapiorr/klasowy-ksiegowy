@@ -527,7 +527,7 @@ export default function SkladkaDetail() {
   const totalWyplaty = parseFloat(data.wyplacono_lacznie || 0);
   const saldo = parseFloat(data.saldo || 0);
   const pct = totalCel > 0 ? Math.min((totalZebrano / totalCel) * 100, 100) : 0;
-  const totalOgolne = data.liczniki ? parseFloat(data.liczniki.ogolne || 0) : ogolne.reduce((s, w) => s + parseFloat(w.kwota), 0);
+  const totalOgolne = parseFloat(data.wplaty_ogolne_lacznie || 0);
 
   return (
     <div className="max-w-3xl">
@@ -596,8 +596,13 @@ export default function SkladkaDetail() {
           <div className="font-mono text-right">
             <div className="text-2xl font-700 text-sage-600 dark:text-sage-400 dark:text-gray-500">{totalZebrano.toFixed(2)} zł</div>
             <div className="text-xs text-sage-400 dark:text-gray-500">z {totalCel.toFixed(2)} zł</div>
-            {totalWyplaty > 0 && <>
+            {totalOgolne > 0 && (
+              <div className="text-xs text-sage-500 dark:text-sage-400 mt-1">+{totalOgolne.toFixed(2)} zł wpłat ogólnych</div>
+            )}
+            {totalWyplaty > 0 && (
               <div className="text-xs text-rose-400 mt-1">−{totalWyplaty.toFixed(2)} zł wypłat</div>
+            )}
+            {(totalWyplaty > 0 || totalOgolne > 0) && <>
               <div className={`text-sm font-600 mt-0.5 ${saldo >= 0 ? 'text-sage-600' : 'text-rose-500'}`}>
                 saldo: {saldo.toFixed(2)} zł
               </div>
@@ -611,7 +616,6 @@ export default function SkladkaDetail() {
           <span className={`text-sage-600 ${isKsiegowy ? 'cursor-pointer hover:underline' : ''}`} onClick={() => isKsiegowy && setFiltruj('zaplacone')}>✓ {zaplacili} zapłaciło</span>
           <span className={`text-amber-600 ${isKsiegowy ? 'cursor-pointer hover:underline' : ''}`} onClick={() => isKsiegowy && setFiltruj('czesciowo')}>◑ {czesciowo} częściowo</span>
           <span className={`text-rose-400 ${isKsiegowy ? 'cursor-pointer hover:underline' : ''}`} onClick={() => isKsiegowy && setFiltruj('niezaplacone')}>✗ {niezaplacili} nie zapłaciło</span>
-          {totalOgolne > 0 && <span className="text-sage-400 dark:text-gray-500">+{totalOgolne.toFixed(2)} zł ogólnych</span>}
         </div>
       </div>
 

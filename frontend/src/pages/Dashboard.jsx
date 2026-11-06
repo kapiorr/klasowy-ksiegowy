@@ -255,6 +255,7 @@ export default function Dashboard() {
               const cel = parseFloat(s.cel_lacznie || 0);
               const zebrano = parseFloat(s.zebrano_lacznie || 0);
               const wyplacono = parseFloat(s.wyplacono_lacznie || 0);
+              const ogolne = parseFloat(s.wplaty_ogolne_lacznie || 0);
               const saldo = parseFloat(s.saldo || 0);
               return (
                 <Link key={s.id} to={`/skladki/${s.id}`}
@@ -272,12 +273,17 @@ export default function Dashboard() {
                       <div className="font-mono text-sm font-500 text-sage-600 dark:text-sage-400">
                         {zebrano.toFixed(2)} / {cel.toFixed(2)} zł
                       </div>
+                      {ogolne > 0 && (
+                        <div className="font-mono text-xs text-sage-500 dark:text-sage-400">
+                          +{ogolne.toFixed(2)} zł wpłat ogólnych
+                        </div>
+                      )}
                       {wyplacono > 0 && (
                         <div className="font-mono text-xs text-rose-400">
                           −{wyplacono.toFixed(2)} zł wypłat
                         </div>
                       )}
-                      {wyplacono > 0 && (
+                      {(wyplacono > 0 || ogolne > 0) && (
                         <div className={`font-mono text-sm font-600 ${saldo >= 0 ? 'text-sage-600' : 'text-rose-500'}`}>
                           saldo: {saldo.toFixed(2)} zł
                         </div>

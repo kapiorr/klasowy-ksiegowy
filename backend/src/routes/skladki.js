@@ -16,8 +16,9 @@ router.get('/', requireAuth, async (req, res) => {
         COALESCE(su.liczba_uczniow, 0)                    AS liczba_uczniow,
         COALESCE(su.liczba_uczniow, 0) * s.kwota_na_osobe AS cel_lacznie,
         COALESCE(w.zebrano_lacznie, 0)                    AS zebrano_lacznie,
+        COALESCE(w.ogolne_lacznie, 0)                     AS wplaty_ogolne_lacznie,
         COALESCE(wy.wyplacono_lacznie, 0)                 AS wyplacono_lacznie,
-        COALESCE(w.zebrano_lacznie, 0) - COALESCE(wy.wyplacono_lacznie, 0) AS saldo
+        COALESCE(w.zebrano_lacznie, 0) + COALESCE(w.ogolne_lacznie, 0) - COALESCE(wy.wyplacono_lacznie, 0) AS saldo
       FROM skladki s
       LEFT JOIN (
         SELECT skladka_id, COUNT(*) AS liczba_uczniow
@@ -25,7 +26,9 @@ router.get('/', requireAuth, async (req, res) => {
         GROUP BY skladka_id
       ) su ON su.skladka_id = s.id
       LEFT JOIN (
-        SELECT skladka_id, SUM(kwota) AS zebrano_lacznie
+        SELECT skladka_id,
+               SUM(kwota) FILTER (WHERE uczen_id IS NOT NULL) AS zebrano_lacznie,
+               SUM(kwota) FILTER (WHERE uczen_id IS NULL)     AS ogolne_lacznie
         FROM wplaty
         GROUP BY skladka_id
       ) w ON w.skladka_id = s.id
@@ -53,11 +56,12 @@ router.get('/:id', requireAuth, async (req, res) => {
         COALESCE(su.liczba_uczniow, 0)                    AS liczba_uczniow,
         COALESCE(su.liczba_uczniow, 0) * s.kwota_na_osobe AS cel_lacznie,
         COALESCE(w.zebrano_lacznie, 0)                    AS zebrano_lacznie,
+        COALESCE(w.ogolne_lacznie, 0)                     AS wplaty_ogolne_lacznie,
         COALESCE(wy.wyplacono_lacznie, 0)                 AS wyplacono_lacznie,
-        COALESCE(w.zebrano_lacznie, 0) - COALESCE(wy.wyplacono_lacznie, 0) AS saldo
+        COALESCE(w.zebrano_lacznie, 0) + COALESCE(w.ogolne_lacznie, 0) - COALESCE(wy.wyplacono_lacznie, 0) AS saldo
       FROM skladki s
       LEFT JOIN (SELECT skladka_id, COUNT(*) AS liczba_uczniow FROM skladka_ucznowie GROUP BY skladka_id) su ON su.skladka_id = s.id
-      LEFT JOIN (SELECT skladka_id, SUM(kwota) AS zebrano_lacznie FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
+      LEFT JOIN (SELECT skladka_id, SUM(kwota) FILTER (WHERE uczen_id IS NOT NULL) AS zebrano_lacznie, SUM(kwota) FILTER (WHERE uczen_id IS NULL) AS ogolne_lacznie FROM wplaty GROUP BY skladka_id) w ON w.skladka_id = s.id
       LEFT JOIN (SELECT skladka_id, SUM(kwota) AS wyplacono_lacznie FROM wyplaty GROUP BY skladka_id) wy ON wy.skladka_id = s.id
       WHERE s.id = $1
     `, [req.params.id]);

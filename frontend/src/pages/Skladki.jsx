@@ -211,6 +211,7 @@ export default function Skladki() {
             const cel = parseFloat(s.cel_lacznie || 0);
             const zebrano = parseFloat(s.zebrano_lacznie || 0);
             const wyplacono = parseFloat(s.wyplacono_lacznie || 0);
+            const ogolne = parseFloat(s.wplaty_ogolne_lacznie || 0);
             const saldo = parseFloat(s.saldo || 0);
             const pct = cel > 0 ? Math.min((zebrano / cel) * 100, 100) : 0;
             const archiwalna = s.status === 'zakonczona';
@@ -250,12 +251,17 @@ export default function Skladki() {
                     <div className={`font-mono text-sm font-500 ${archiwalna ? 'text-gray-400' : 'text-sage-600 dark:text-sage-400'}`}>
                       {zebrano.toFixed(2)} / {cel.toFixed(2)} zł
                     </div>
+                    {ogolne > 0 && (
+                      <div className={`font-mono text-xs ${archiwalna ? 'text-gray-400' : 'text-sage-500 dark:text-sage-400'}`}>
+                        +{ogolne.toFixed(2)} zł wpłat ogólnych
+                      </div>
+                    )}
                     {wyplacono > 0 && (
                       <div className="font-mono text-xs text-rose-400">
                         −{wyplacono.toFixed(2)} zł wypłat
                       </div>
                     )}
-                    {wyplacono > 0 && (
+                    {(wyplacono > 0 || ogolne > 0) && (
                       <div className={`font-mono text-sm font-600 ${saldo >= 0 ? (archiwalna ? 'text-gray-400' : 'text-sage-600 dark:text-sage-400') : 'text-rose-500'}`}>
                         saldo: {saldo.toFixed(2)} zł
                       </div>
