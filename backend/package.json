@@ -7,7 +7,7 @@
     "dev": "node --watch src/index.js"
   },
   "dependencies": {
-    "argon2": "^0.45.1",
+    "argon2": "^0.45.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.2.1",
