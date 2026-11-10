@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import db from '../db.js';
 import { sendPushToUsers } from '../pushSender.js';
 import { requireAuth, requireKsiegowy } from '../middleware/auth.js';
