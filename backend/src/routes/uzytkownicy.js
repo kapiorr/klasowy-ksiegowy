@@ -43,6 +43,7 @@ function formatTelefon(tel) {
 
 function walidujEmail(email) {
   if (!email) return null;
+  if (String(email).length > 254) return 'Nieprawidłowy format adresu email'; // limit RFC — chroni regex przed ReDoS
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email) ? null : 'Nieprawidłowy format adresu email';
 }

@@ -9,6 +9,9 @@ on:
     - cron: "0 5 * * 1" # co poniedziałek 05:00 UTC
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   gitleaks:
     name: Gitleaks — secret scanning
