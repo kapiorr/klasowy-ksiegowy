@@ -66,11 +66,3 @@ jobs:
       - uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
-          output: sarif-results
-      - name: Print CodeQL findings (diagnostic)
-        if: always()
-        run: |
-          for f in sarif-results/*.sarif; do
-            echo "== $f"
-            jq -r '.runs[].results[] | [(.level // "warning"), .ruleId, (.locations[0].physicalLocation.artifactLocation.uri + ":" + (.locations[0].physicalLocation.region.startLine|tostring)), (.message.text|gsub("\n";" ")|.[0:140])] | @tsv' "$f" | sort | sed 's/^/FINDING\t/'
-          done
